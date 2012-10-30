@@ -45,6 +45,8 @@
 # could import pylab here for graphing etc
 import sys
 import random
+import pickle
+import json
 
 ticksize = 1
 bse_sys_minprice = 1
@@ -67,7 +69,7 @@ class Order:
 
 # Orderbook_half is one side of the book: a list of bids or a list of asks, each sorted best-first
 
-class Orderbook_half:
+class Orderbook_half(object):
 
         def __init__(self, booktype, worstprice):
                 # booktype: bids or asks?
@@ -175,6 +177,12 @@ class Orderbook_half:
                 self.build_lob()
                 return best_price_counterparty
 
+        def get_values(self):
+            """Returns the price of every order in a list"""
+            values = []
+            for order in self.orders.values():
+                values.append(order.price)
+            return values
 
 
 # Orderbook for a single instrument: list of bids and list of asks
@@ -191,6 +199,9 @@ class Orderbook(Orderbook_half):
 # Exchange's internal orderbook
 
 class Exchange(Orderbook):
+
+        def __init__(self):
+            super(Exchange,self).__init__()
                              
         def add_order(self, order):
                 # add an order to the exchange and update all internal records
@@ -278,11 +289,10 @@ class Exchange(Orderbook):
         def tape_dump(self,fname,fmode,tmode):
                 dumpfile = open(fname,fmode)
                 for tapeitem in self.tape:
-                        dumpfile.write('%s, %s\n' % (tapeitem['time'], tapeitem['price']))
+                        dumpfile.write('%s, %s, %s, %s\n' % (tapeitem['time'], tapeitem['price'],tapeitem['party1'], tapeitem['party2']))
                 dumpfile.close()
                 if tmode == 'wipe':
-                        self.tape = []
-
+                        self.tape = []     
 
         # this returns the LOB data "published" by the exchange,
         # i.e., what is accessible to the traders
@@ -309,6 +319,84 @@ from DefaultTraders import *
 # one session in the market
 def market_session(sess_id, starttime, endtime, trader_spec, order_schedule, dumpfile, dump_each_trade):
 
+        def store_charts_as_json(fname,charts):
+            """Convert the dictionary describing each supply and demand chart to json and write it to the given file"""
+            chart_file = open(fname,'w')
+            for chart in charts:
+                chart_file.write('%s\n' % json.dumps(chart))
+
+        def add_new_orderpoint_to_dictionary(orderpoints,bot_id,time,price):
+            """Actually create and add the new orderpoint to the dictionary of lists of orderpoints using the id provided as the key"""
+            if bot_id not in orderpoints:
+                trader_orders = [(time,price)]
+                orderpoints[bot_id] = trader_orders
+            else:
+                trader_orders = orderpoints[bot_id]
+
+                # If there was already an order at a given time then replace it with the new value (seemed to have an effect when new orders came in)
+                if trader_orders[-1][0] == time:
+                    # print 'replacing order %s' % str(trader_orders[-1])
+                    trader_orders[-1] = (time,price)
+                else:
+                    trader_orders.append((time,price))
+
+        def add_all_current_orders_for_type(exchange,all_orderpoints,traders,order_type,time):
+            # First, get the correct list of orders from the exchange
+            orders = None
+            if order_type == 'bids':
+                orders = exchange.bids.orders
+            elif order_type == 'asks':
+                orders = exchange.asks.orders
+
+            if orders == None:
+                raise Exception('Incorrect order type', 'define an order type as either buy or sell')
+
+            # Make sure that that order_type in in the all_orderpoints dictionary
+            if order_type not in all_orderpoints:
+                orderpoints = {}
+                all_orderpoints[order_type] = orderpoints
+            else:
+                orderpoints = all_orderpoints[order_type]
+
+            # Go through each of the current orders and find the list of orders corresponding to that bot
+            for order in orders.values():
+                bot_id = '%s (%s)' % (order.tid,traders[order.tid].ttype)
+                add_new_orderpoint_to_dictionary(orderpoints,bot_id,time,order.price)
+            
+
+        def add_orderpoints(exchange,all_orderpoints,traders,time,new_order):
+            """
+            Adds all the orderpoint at a given moment in time.
+            all_orderpoints is broken into bids/asks buckets then into buckets for each trader
+            Each trader's orders are then broken up based on whether they had an order in the previous time step
+            This results in each TID being the key for a list of lists of points in the form (time,price)
+            """
+
+            add_all_current_orders_for_type(exchange,all_orderpoints,traders,'bids',time)
+            add_all_current_orders_for_type(exchange,all_orderpoints,traders,'asks',time)
+            
+            orders = exchange.bids.orders.values() + exchange.asks.orders.values()
+
+            # Check for each trader to see if there is a current order for them. If not, just drop the price down to zero.
+            for trader in traders.values():
+                bot_id = '%s (%s)' % (trader.tid,trader.ttype)
+                if not bot_id in orders:
+                    add_new_orderpoint_to_dictionary(orderpoints,bot_id,time,0)
+
+            # Process the new order that came in if there was one. This will override whatever was put there in the last loop
+            new_order_id = ''
+            if new_order != None:
+                new_order_id = '%s (%s)' % (new_order.tid,traders[new_order.tid].ttype)
+                # print 'Adding new order %s' % new_order
+                add_new_orderpoint_to_dictionary(orderpoints,new_order_id,time,new_order.price)
+
+
+
+        def store_orderpoints_as_json(fname,orderpoints):
+            """Convert the dictionary mapping traders to (time,ordervalues) points"""
+            orderpoint_file = open(fname,'w')
+            orderpoint_file.write('%s\n' % json.dumps(orderpoints))
+
         # initialise the exchange
         exchange = Exchange()
 
@@ -323,10 +411,24 @@ def market_session(sess_id, starttime, endtime, trader_spec, order_schedule, dum
         last_update = -1.0
 
         time = starttime
-
         orders_verbose = True
         lob_verbose = False
         respond_verbose = False
+
+        # Set the time to wait before making a new supply/demand chart
+        number_of_charts = 10
+        chart_timestep = order_schedule['interval'] / number_of_charts
+        chart_counter = 0
+        charts = []
+
+        # Set the time to wait before taking another set of order values data points
+        number_of_orderpoints = 100
+        orderpoint_timestep = order_schedule['interval'] / number_of_orderpoints
+        orderpoint_counter = 0
+
+        # We are going to store the order points in a dictionary mapping TID to a list of tuples of points (time,price)
+        # Firstly the dictionary is broken up into buy/sell then further by TID
+        orderpoints = {}
 
         while time < endtime:
 
@@ -359,15 +461,56 @@ def market_session(sess_id, starttime, endtime, trader_spec, order_schedule, dum
                         lob = exchange.publish_lob(time, lob_verbose)
                         for t in traders:
                                 traders[t].respond(time, lob, trade, respond_verbose)
+
+                        # Also store the current supply and demand info
+                        bid_values = exchange.bids.get_values()
+                        ask_values = exchange.asks.get_values()
+
+                # If its time to store another set of values to create a supply/demand chart then do it
+                if chart_counter > chart_timestep:
+                    charts.append({'time':time,'bids':bid_values,'asks':ask_values})
+                    chart_counter = 0
+
+                # If it is time to store another set of ask/buy datapoints then do it
+                # if orderpoint_counter > orderpoint_timestep:
+                # MAKE SURE THERE ARE SOME BIDS AND ASKS. THIS IS A BIT OF A HACK
+                if len(exchange.bids.orders) > 0 and len(exchange.asks.orders) > 0:
+                    # bid_orders = exchange.bids.orders
+                    # for order in bid_orders.values():
+                    #     bot_id = '%s (%s)' % (order.tid,traders[order.tid].ttype)
+                    #     if bot_id not in bid_orderpoints:
+                    #         trader_bids = []
+                    #     else:
+                    #         trader_bids = bid_orderpoints[bot_id]
+                    #     trader_bids.append((order.time,order.price))
+                    #     bid_orderpoints[bot_id] = trader_bids
+                    
+                    # ask_orders = exchange.asks.orders
+                    # for order in ask_orders.values():
+                    #     bot_id = '%s (%s)' % (order.tid,traders[order.tid].ttype)
+                    #     if bot_id not in ask_orderpoints:
+                    #         trader_asks = []
+                    #     else:
+                    #         trader_asks = ask_orderpoints[bot_id]
+                    #     trader_asks.append((order.time,order.price))
+                    #     ask_orderpoints[bot_id] = trader_asks
+
+                    add_orderpoints(exchange,orderpoints,traders,time,order)
+
+                    orderpoint_counter = 0
                         
                 time = time + timestep
+                chart_counter += timestep
+                orderpoint_counter += timestep
         
-
         # end of an experiment -- dump the tape
         exchange.tape_dump('transactions.csv','w','keep')
 
         # write trade_stats for this experiment NB end-of-session summary only
         trade_stats(sess_id, traders, dumpfile, time, exchange.publish_lob(time, lob_verbose))    
+
+        store_charts_as_json('charts.json', charts)
+        store_orderpoints_as_json('orderpoints.json',orderpoints)
         
 
 # create a bunch of traders from traders_spec
@@ -494,7 +637,7 @@ def customer_orders(time, last_update, traders, trader_stats, os, verbose):
         def sysmin_check(price):
                 if price < bse_sys_minprice:
                         print('WARNING: price < bse_sys_min -- clipped')
-                        price = bse_sys_minval
+                        price = bse_sys_minprice
                 return price
 
         def sysmax_check(price):
@@ -527,9 +670,8 @@ def customer_orders(time, last_update, traders, trader_stats, os, verbose):
 
         itime = int(time)
 
-        
+        # here we do a full instantaneous replenishment once every replenish_interval
         if ((itime % os['interval']) == 0) and (itime > last_update):           
-                # here we do a full instantaneous replenishment once every replenish_interval
                 if verbose: print('>>>>>>>>>>>>>>>>>>REPLENISHING')
                 for t in range(n_buyers):
                         tname = 'B%02d' % t  # demand side (a buyer)
@@ -550,6 +692,7 @@ def customer_orders(time, last_update, traders, trader_stats, os, verbose):
                         order = Order(tname, ordertype, orderprice, 1, time)
                         if verbose: print order
                         traders[tname].add_order(order)
+
                 return itime # returns time of last replenishment, if there was one
         else:
                 return None 

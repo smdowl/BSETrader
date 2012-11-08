@@ -34,7 +34,8 @@ class Trader:
         def bookkeep(self,trade,order):
                 
                 outstr='%s (%s) bookkeeping: orders=' % (self.tid, self.ttype)
-                for order in self.orders: outstr = outstr + str(order)
+                for order in self.orders: 
+                    outstr = outstr + str(order)
                 
                 self.blotter.append(trade) # add trade record to trader's blotter
                 # NB What follows is **LAZY** -- assumes all orders are quantity=1
@@ -43,6 +44,7 @@ class Trader:
                         profit = self.orders[0].price-transactionprice
                 else:
                         profit = transactionprice-self.orders[0].price        
+
                 self.balance += profit
                 print('%s profit=%d balance=%d ' % (outstr, profit, self.balance))
                 self.del_order(order) # delete the order
@@ -52,9 +54,7 @@ class Trader:
         # this is a null action, expect it to be overloaded with clever things by specific algos
         def respond(self, time, lob, trade, verbose):
                 return None
-        
-
-                
+                        
 
 # Trader subclass Giveaway
 # even dumber than a ZI-U: just give the deal away
@@ -330,6 +330,7 @@ class Trader_ZIP(Trader):
                                         # could sell for more? raise margin
                                         target_price=target_up(tradeprice)
                                         profit_alter(target_price)
+                                        print 'ask raise margin traded at %i self.price = %i' % (tradeprice,self.price)
                                 elif ask_lifted and self.active and not willing_to_trade(tradeprice): 
                                         # wouldnt have got this deal, still working order, so reduce margin
                                         target_price=target_down(tradeprice)
@@ -349,6 +350,7 @@ class Trader_ZIP(Trader):
                                 tradeprice = trade['price']
                                 if self.price >= tradeprice:
                                         # could buy for less? raise margin (i.e. cut the price)
+                                        print 'bid raise margin traded at %i self.price = %i' % (tradeprice,self.price)
                                         target_price=target_down(tradeprice)
                                         profit_alter(target_price)
                                 elif bid_hit and self.active and not willing_to_trade(tradeprice):

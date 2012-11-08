@@ -397,6 +397,17 @@ def market_session(sess_id, starttime, endtime, trader_spec, order_schedule, dum
             orderpoint_file = open(fname,'w')
             orderpoint_file.write('%s\n' % json.dumps(orderpoints))
 
+        def get_current_customer_orders(traders):
+            """Get the list of customer points that each trader has"""
+            customer_orders = {'Bid':[], 'Ask':[]}
+            for trader in traders.values():
+                # Add every traders curstomer orders to the list
+                for order in trader.orders:
+                    customer_orders[order.otype].append(order.price)
+
+            return customer_orders
+
+
         # initialise the exchange
         exchange = Exchange()
 
@@ -420,6 +431,7 @@ def market_session(sess_id, starttime, endtime, trader_spec, order_schedule, dum
         chart_timestep = order_schedule['interval'] / number_of_charts
         chart_counter = 0
         charts = []
+        customer_order_history = []
 
         # Set the time to wait before taking another set of order values data points
         number_of_orderpoints = 100
@@ -469,6 +481,10 @@ def market_session(sess_id, starttime, endtime, trader_spec, order_schedule, dum
                 # If its time to store another set of values to create a supply/demand chart then do it
                 if chart_counter > chart_timestep:
                     charts.append({'time':time,'bids':bid_values,'asks':ask_values})
+                    current_orders = get_current_customer_orders(traders)
+                    current_orders['time'] = time
+                    customer_order_history.append(current_orders)
+
                     chart_counter = 0
 
                 # If it is time to store another set of ask/buy datapoints then do it
@@ -511,6 +527,9 @@ def market_session(sess_id, starttime, endtime, trader_spec, order_schedule, dum
 
         store_charts_as_json('charts.json', charts)
         store_orderpoints_as_json('orderpoints.json',orderpoints)
+
+        order_file = open('customer_orders.json','w')
+        order_file.write('%s' % json.dumps(customer_order_history))
         
 
 # create a bunch of traders from traders_spec
@@ -631,7 +650,7 @@ def trade_stats(expid, traders, dumpfile, time, lob):
 # needs extending for continuous drip-feed replenishment
 # NB will be extended to allow multiple ranges for mode='random'
 
-def customer_orders(time, last_update, traders, trader_stats, os, verbose):
+def customer_orders(time, last_update, traders, trader_stats, os, verbose,exchange=None):
 
 
         def sysmin_check(price):
@@ -692,6 +711,9 @@ def customer_orders(time, last_update, traders, trader_stats, os, verbose):
                         order = Order(tname, ordertype, orderprice, 1, time)
                         if verbose: print order
                         traders[tname].add_order(order)
+
+                if exchange != None:
+                    exchange.customer_orders = customer_orders
 
                 return itime # returns time of last replenishment, if there was one
         else:

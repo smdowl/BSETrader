@@ -5,7 +5,7 @@ demand_schedule = {'ranges':[(10,190)], 'mode':'jittered'}
 order_schedule = {'sup':supply_schedule, 'dem':demand_schedule, 'interval':30}
 # ,('ZIC',5)
 # ('SHVR',5),('SNPR',5),
-# buyers_spec = [('ZIP',5)]
+# buyers_spec = [('ZIP',5)],('AA',1)
 buyers_spec = [('SHVR',2),('GVWY',2),('SNPR',2),('ZIP',2)]
 sellers_spec = buyers_spec
 

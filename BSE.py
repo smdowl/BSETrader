@@ -315,6 +315,7 @@ class Exchange(Orderbook):
 
 # After all the BSE objects have been set up, now import the traders
 from DefaultTraders import *
+from Trader_AA import Trader_AA
 
 # one session in the market
 def market_session(sess_id, starttime, endtime, trader_spec, order_schedule, dumpfile, dump_each_trade):
@@ -460,23 +461,23 @@ def market_session(sess_id, starttime, endtime, trader_spec, order_schedule, dum
                 order = traders[tid].getorder(time,time_left,exchange.publish_lob(time, lob_verbose))
 
                 if order != None:
-                        # send order to exchange
-                        trade = exchange.process_order2(time, order, True)
-                        if trade != None:
-                                # trade occurred,
-                                # so the counterparties update order lists and blotters
-                                traders[trade['party1']].bookkeep(trade, order)
-                                traders[trade['party2']].bookkeep(trade, order)
-                                if dump_each_trade: trade_stats(sess_id, traders, tdump, time, exchange.publish_lob(time, lob_verbose))
+                    # send order to exchange
+                    trade = exchange.process_order2(time, order, True)
+                    if trade != None:
+                        # trade occurred,
+                        # so the counterparties update order lists and blotters
+                        traders[trade['party1']].bookkeep(trade, order)
+                        traders[trade['party2']].bookkeep(trade, order)
+                        if dump_each_trade: trade_stats(sess_id, traders, tdump, time, exchange.publish_lob(time, lob_verbose))
 
-                        # traders respond to whatever happened
-                        lob = exchange.publish_lob(time, lob_verbose)
-                        for t in traders:
-                                traders[t].respond(time, lob, trade, respond_verbose)
+                    # traders respond to whatever happened
+                    lob = exchange.publish_lob(time, lob_verbose)
+                    for t in traders:
+                        traders[t].respond(time, lob, trade, respond_verbose)
 
-                        # Also store the current supply and demand info
-                        bid_values = exchange.bids.get_values()
-                        ask_values = exchange.asks.get_values()
+                    # Also store the current supply and demand info
+                    bid_values = exchange.bids.get_values()
+                    ask_values = exchange.asks.get_values()
 
                 # If its time to store another set of values to create a supply/demand chart then do it
                 if chart_counter > chart_timestep:
@@ -548,6 +549,8 @@ def populate_market(traders_spec, traders, shuffle, verbose):
                         return Trader_Sniper('SNPR', name, 0.00)
                 elif robottype == 'ZIP':
                         return Trader_ZIP('ZIP', name, 0.00)
+                elif robottype == 'AA':
+                        return Trader_AA('AA', name, 0.00)
                 else:
                         sys.exit('FATAL: don\'t know robot type %s\n' % robottype)
 
@@ -691,30 +694,30 @@ def customer_orders(time, last_update, traders, trader_stats, os, verbose,exchan
 
         # here we do a full instantaneous replenishment once every replenish_interval
         if ((itime % os['interval']) == 0) and (itime > last_update):           
-                if verbose: print('>>>>>>>>>>>>>>>>>>REPLENISHING')
-                for t in range(n_buyers):
-                        tname = 'B%02d' % t  # demand side (a buyer)
-                        ordertype = 'Bid'
-                        sched = os['dem']['ranges']
-                        mode = os['dem']['mode']
-                        orderprice = getorderprice(t, sched, n_buyers, mode)
-                        order = Order(tname, ordertype, orderprice, 1, time)
-                        if verbose: print order
-                        traders[tname].add_order(order)
+            if verbose: print('>>>>>>>>>>>>>>>>>>REPLENISHING')
+            for t in range(n_buyers):
+                tname = 'B%02d' % t  # demand side (a buyer)
+                ordertype = 'Bid'
+                sched = os['dem']['ranges']
+                mode = os['dem']['mode']
+                orderprice = getorderprice(t, sched, n_buyers, mode)
+                order = Order(tname, ordertype, orderprice, 1, time)
+                if verbose: print order
+                traders[tname].add_order(order)
 
-                for t in range(n_sellers):
-                        tname = 'S%02d' % t  # supply side (a seller)
-                        ordertype = 'Ask'
-                        sched = os['sup']['ranges']
-                        mode = os['sup']['mode']
-                        orderprice = getorderprice(t, sched, n_sellers, mode)
-                        order = Order(tname, ordertype, orderprice, 1, time)
-                        if verbose: print order
-                        traders[tname].add_order(order)
+            for t in range(n_sellers):
+                tname = 'S%02d' % t  # supply side (a seller)
+                ordertype = 'Ask'
+                sched = os['sup']['ranges']
+                mode = os['sup']['mode']
+                orderprice = getorderprice(t, sched, n_sellers, mode)
+                order = Order(tname, ordertype, orderprice, 1, time)
+                if verbose: print order
+                traders[tname].add_order(order)
 
-                if exchange != None:
-                    exchange.customer_orders = customer_orders
+            if exchange != None:
+                exchange.customer_orders = customer_orders
 
-                return itime # returns time of last replenishment, if there was one
+            return itime # returns time of last replenishment, if there was one
         else:
                 return None 

@@ -45,6 +45,9 @@ class Trader_AA(Trader):
         # Store the price volatility at every point in time (may be repeats)
         self.alphas = []
 
+        # Store what marginality this trader is
+        self.marginality = Marginality.Neutral;
+
 
     def getorder(self,time,countdown,lob):
         """Use the variables we have learnt to create an order"""
@@ -76,24 +79,20 @@ class Trader_AA(Trader):
     def respond(self, time, lob, trade, verbose):
         """Learn from what just happened in the market"""
         
-        self.react_to_changes(lob)
+        change = self.react_to_changes(trade,lob)
 
         # If there have been some previous transactions then approximate the equlibrium
         if len(self.transactions) > 0:
-            estimate_sum = 0
-            weights = 0
-            # Now we want to calculate the estimate of the equilibrium price
-            for i in range(len(self.transactions)):
-                weight = 0.9 ** (i-1)
+            # If there has been any change then recalculate the equilibrium and our marginality
+            if change:
+                # estimate the new market equilibrium
+                self.calculate_market_equilibrium()
                 
-                estimate_sum += transations[-i] * weight
-                weights += weight
+                # Work out the marginality of the trader given the new estimate of the equilibrium price
+                self.get_marginality()
 
-            estimate = estimate_sum / weights
 
-            marginality = self.get_marginality(estimate)
-
-    def get_marginality(self,estimate):
+    def get_marginality(self):
         """Get the marginality based on the trade type and estimate to the market equilibrium"""
 
         # Set the comparison method depending on trader type
@@ -103,17 +102,18 @@ class Trader_AA(Trader):
         else:
             comparator = less_than
 
-        if (comparator(self.limit, estimate)):
-            marginality  = Marginality.Intra
-        elif not comparator(self.limit, estimate) and self.limit != estimate:
-            marginality  = Marginality.Extra
+        if (comparator(self.limit, self.equilibrium)):
+            self.marginality  = Marginality.Intra
+        elif not comparator(self.limit, self.equilibrium) and self.limit != self.equilibrium:
+            self.marginality  = Marginality.Extra
         else:
-            marginality = Marginality.Neutral
+            self.marginality = Marginality.Neutral
 
-        return marginality
-
-    def react_to_changes(self,lob):
-        """Add any new transactions to the list so that we can use them to approximate the equilibrium"""
+    def react_to_changes(self,trade,lob):
+        """
+        Add any new transactions to the list so that we can use them to approximate the equilibrium
+        Returns true if there was a change in the market and false otherwise
+        """
         # what, if anything, has happened on the bid LOB?
         bid_improved = False
         bid_hit = False
@@ -147,4 +147,19 @@ class Trader_AA(Trader):
                     self.transactions.append(self.prev_best_ask_price)
         elif self.prev_best_ask_price != None:
             # the bid LOB is empty now but was not previously, so must have been hit
-            ask_hit = True
+            ask_lifted = True
+
+
+        return bid_hit or ask_lifted
+
+    def calculate_market_equilibrium(self):
+        estimate_sum = 0
+        weights = 0
+        # Now we want to calculate the estimate of the equilibrium price
+        for i in range(len(self.transactions)):
+            weight = 0.9 ** (i-1)
+            
+            estimate_sum += transations[-i] * weight
+            weights += weight
+
+        estimate = estimate_sum / weights

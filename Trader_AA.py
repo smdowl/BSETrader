@@ -89,15 +89,31 @@ class Trader_AA(Trader):
                 self.calculate_market_equilibrium()
                 # Update the marginality of the trader given the new estimate of the equilibrium price
                 self.get_marginality()
+            
+            # Calculate theta from alpha
+            if len(alphas) < 1:
+                ahat = 1
+            else:
+                temp = 0
+                for i in range(len(self.transactions)):
+                    temp += (transactions[i] - estimate)**2
+                a = (temp/len(self.transactions))**0.5
+                a /= estimate
+                self.alphas.append(a)
+
+                if (max(alphas) == min(alphas)):
+                    ahat = 1 - (a - min(alphas))/(max(alphas) - min(alphas))
+                else:
+                    ahat = 1
+                thetastar
+
 
             r_shout = caclulate_r_shout()
 
 
 
-
-
-    def get_marginality(self):
-        """ Get the marginality based on the trade type and estimate to the market equilibrium """
+    def get_marginality(self,estimate):
+        """Get the marginality based on the trader type and estimate of the market equilibrium"""
 
         # Set the comparison method depending on trader type
         comparator = None
@@ -176,3 +192,4 @@ class Trader_AA(Trader):
         Both the price and the function to solve depend on the marginality of the trader
         """
         pass
+

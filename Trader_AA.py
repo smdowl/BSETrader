@@ -87,7 +87,7 @@ class Trader_AA(Trader):
             if change:
                 # estimate the new market equilibrium
                 self.calculate_market_equilibrium()
-                
+
                 # Work out the marginality of the trader given the new estimate of the equilibrium price
                 self.get_marginality()
 
@@ -159,7 +159,7 @@ class Trader_AA(Trader):
         for i in range(len(self.transactions)):
             weight = 0.9 ** (i-1)
             
-            estimate_sum += transations[-i] * weight
+            estimate_sum += self.transactions[-i] * weight
             weights += weight
 
         estimate = estimate_sum / weights

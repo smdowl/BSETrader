@@ -75,8 +75,46 @@ class Trader_AA(Trader):
 
     def respond(self, time, lob, trade, verbose):
         """Learn from what just happened in the market"""
-        # what, if anything, has happened on the bid LOB?
+        
+        self.react_to_changes(lob)
 
+        # If there have been some previous transactions then approximate the equlibrium
+        if len(self.transactions) > 0:
+            estimate_sum = 0
+            weights = 0
+            # Now we want to calculate the estimate of the equilibrium price
+            for i in range(len(self.transactions)):
+                weight = 0.9 ** (i-1)
+                
+                estimate_sum += transations[-i] * weight
+                weights += weight
+
+            estimate = estimate_sum / weights
+
+            marginality = self.get_marginality(estimate)
+
+    def get_marginality(self,estimate):
+        """Get the marginality based on the trade type and estimate to the market equilibrium"""
+
+        # Set the comparison method depending on trader type
+        comparator = None
+        if (self.job == 'Ask'):
+            comparator = greater_than
+        else:
+            comparator = less_than
+
+        if (comparator(self.limit, estimate)):
+            marginality  = Marginality.Intra
+        elif not comparator(self.limit, estimate) and self.limit != estimate:
+            marginality  = Marginality.Extra
+        else:
+            marginality = Marginality.Neutral
+
+        return marginality
+
+    def react_to_changes(self,lob):
+        """Add any new transactions to the list so that we can use them to approximate the equilibrium"""
+        # what, if anything, has happened on the bid LOB?
         bid_improved = False
         bid_hit = False
         lob_best_bid_p = lob['bids']['best']
@@ -110,37 +148,3 @@ class Trader_AA(Trader):
         elif self.prev_best_ask_price != None:
             # the bid LOB is empty now but was not previously, so must have been hit
             ask_hit = True
-
-        # If there have been some previous transactions then approximate the equlibrium
-        if len(self.transactions) > 0:
-            estimate_sum = 0
-            weights = 0
-            # Now we want to calculate the estimate of the equilibrium price
-            for i in range(len(self.transactions)):
-                weight = 0.9 ** (i-1)
-                
-                estimate_sum += transations[-i] * weight
-                weights += weight
-
-            estimate = estimate_sum / weights
-
-            marginality = self.get_marginality(estimate)
-
-    def get_marginality(self,estimate):
-        """Get the marginality based on the trade type and estimate to the market equilibrium"""
-
-        # Set the comparison method depending on trader type
-        comparator = None
-        if (self.job == 'Ask'):
-            comparator = greater_than
-        else:
-            comparator = less_than
-
-        if (comparator(self.limit, estimate)):
-            marginality  = Marginality.Intra
-        elif  not comparator(self.limit, estimate) and self.limit != estimate:
-            marginality  = Marginality.Extra
-        else:
-            marginality = Marginality.Neutral
-
-        return marginality

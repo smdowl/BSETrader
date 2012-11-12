@@ -75,41 +75,8 @@ class Trader_AA(Trader):
 
     def respond(self, time, lob, trade, verbose):
         """Learn from what just happened in the market"""
-        # what, if anything, has happened on the bid LOB?
-
-        bid_improved = False
-        bid_hit = False
-        lob_best_bid_p = lob['bids']['best']
-        if lob_best_bid_p != None:
-            # non-empty bid LOB
-            if self.prev_best_bid_price < lob_best_bid_p :
-                # best bid has improved
-                # NB doesn't check if the improvement was by self
-                bid_improved = True
-            elif trade != None and (self.prev_best_bid_price > lob_best_bid_p):
-                # previous best bid was hit                              
-                bid_hit = True
-                self.transations.append(self.prev_best_bid_price)
-        elif self.prev_best_bid_price != None:
-            # the bid LOB has been emptied by a hit
-            bid_hit = True
-                        
-        # what, if anything, has happened on the ask LOB?
-        ask_improved = False
-        ask_lifted = False
-        lob_best_ask_p = lob['asks']['best']
-        if lob_best_ask_p != None:
-            # non-empty ask LOB
-            if self.prev_best_ask_price > lob_best_ask_p :
-                # best ask has improved -- NB doesn't check if the improvement was by self
-                ask_improved = True
-            elif trade != None and (self.prev_best_ask_price < lob_best_ask_p):
-                    # trade happened and best ask price has got worse, or stayed same but quantity reduced -- assume previous best ask was lifted
-                    ask_lifted = True
-                    self.transactions.append(self.prev_best_ask_price)
-        elif self.prev_best_ask_price != None:
-            # the bid LOB is empty now but was not previously, so must have been hit
-            ask_hit = True
+        
+        self.react_to_changes(lob)
 
         # If there have been some previous transactions then approximate the equlibrium
         if len(self.transactions) > 0:
@@ -144,9 +111,46 @@ class Trader_AA(Trader):
 
         if (comparator(self.limit, estimate)):
             marginality  = Marginality.Intra
-        elif  not comparator(self.limit, estimate) and self.limit != estimate:
+        elif not comparator(self.limit, estimate) and self.limit != estimate:
             marginality  = Marginality.Extra
         else:
             marginality = Marginality.Neutral
 
         return marginality
+
+    def react_to_changes(self,lob):
+        """Add any new transactions to the list so that we can use them to approximate the equilibrium"""
+        # what, if anything, has happened on the bid LOB?
+        bid_improved = False
+        bid_hit = False
+        lob_best_bid_p = lob['bids']['best']
+        if lob_best_bid_p != None:
+            # non-empty bid LOB
+            if self.prev_best_bid_price < lob_best_bid_p :
+                # best bid has improved
+                # NB doesn't check if the improvement was by self
+                bid_improved = True
+            elif trade != None and (self.prev_best_bid_price > lob_best_bid_p):
+                # previous best bid was hit                              
+                bid_hit = True
+                self.transations.append(self.prev_best_bid_price)
+        elif self.prev_best_bid_price != None:
+            # the bid LOB has been emptied by a hit
+            bid_hit = True
+                        
+        # what, if anything, has happened on the ask LOB?
+        ask_improved = False
+        ask_lifted = False
+        lob_best_ask_p = lob['asks']['best']
+        if lob_best_ask_p != None:
+            # non-empty ask LOB
+            if self.prev_best_ask_price > lob_best_ask_p :
+                # best ask has improved -- NB doesn't check if the improvement was by self
+                ask_improved = True
+            elif trade != None and (self.prev_best_ask_price < lob_best_ask_p):
+                    # trade happened and best ask price has got worse, or stayed same but quantity reduced -- assume previous best ask was lifted
+                    ask_lifted = True
+                    self.transactions.append(self.prev_best_ask_price)
+        elif self.prev_best_ask_price != None:
+            # the bid LOB is empty now but was not previously, so must have been hit
+            ask_hit = True

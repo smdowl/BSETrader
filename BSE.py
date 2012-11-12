@@ -369,6 +369,8 @@ def populate_market(traders_spec, traders, shuffle, verbose):
                         return Trader_Sniper('SNPR', name, 0.00)
                 elif robottype == 'ZIP':
                         return Trader_ZIP('ZIP', name, 0.00)
+                elif robottype == 'AA':
+                        return Trader_AA('AA', name, 0.00)
                 else:
                         sys.exit('FATAL: don\'t know robot type %s\n' % robottype)
 
@@ -588,7 +590,6 @@ def customer_orders(time, last_update, traders, trader_stats, os, pending, verbo
 
 # one session in the market
 def market_session(sess_id, starttime, endtime, trader_spec, order_schedule, tdump, dump_each_trade):
-
 
         # initialise the exchange
         exchange = Exchange()

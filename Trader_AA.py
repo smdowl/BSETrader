@@ -77,7 +77,7 @@ class Trader_AA(Trader):
         
 
     def respond(self, time, lob, trade, verbose):
-        """Learn from what just happened in the market"""
+        """ Learn from what just happened in the market"""
         
         change = self.react_to_changes(trade,lob)
 
@@ -85,15 +85,19 @@ class Trader_AA(Trader):
         if len(self.transactions) > 0:
             # If there has been any change then recalculate the equilibrium and our marginality
             if change:
-                # estimate the new market equilibrium
+                # Update our estimate the new market equilibrium
                 self.calculate_market_equilibrium()
-
-                # Work out the marginality of the trader given the new estimate of the equilibrium price
+                # Update the marginality of the trader given the new estimate of the equilibrium price
                 self.get_marginality()
+
+            r_shout = caclulate_r_shout()
+
+
+
 
 
     def get_marginality(self):
-        """Get the marginality based on the trade type and estimate to the market equilibrium"""
+        """ Get the marginality based on the trade type and estimate to the market equilibrium """
 
         # Set the comparison method depending on trader type
         comparator = None
@@ -131,6 +135,7 @@ class Trader_AA(Trader):
         elif self.prev_best_bid_price != None:
             # the bid LOB has been emptied by a hit
             bid_hit = True
+            self.transations.append(self.prev_best_bid_price)
                         
         # what, if anything, has happened on the ask LOB?
         ask_improved = False
@@ -144,15 +149,16 @@ class Trader_AA(Trader):
             elif trade != None and (self.prev_best_ask_price < lob_best_ask_p):
                     # trade happened and best ask price has got worse, or stayed same but quantity reduced -- assume previous best ask was lifted
                     ask_lifted = True
-                    self.transactions.append(self.prev_best_ask_price)
         elif self.prev_best_ask_price != None:
             # the bid LOB is empty now but was not previously, so must have been hit
             ask_lifted = True
+            self.transactions.append(self.prev_best_ask_price)
 
 
         return bid_hit or ask_lifted
 
     def calculate_market_equilibrium(self):
+        """ Use a weighted average of all previous transactions to calculate the market equilibrium """
         estimate_sum = 0
         weights = 0
         # Now we want to calculate the estimate of the equilibrium price
@@ -162,4 +168,11 @@ class Trader_AA(Trader):
             estimate_sum += self.transactions[-i] * weight
             weights += weight
 
-        estimate = estimate_sum / weights
+        self.equilibrium = estimate_sum / weights
+
+    def calculate_r_shout(self):
+        """
+        Use current market estimates the work out what aggressiveness would be required to match the current price.
+        Both the price and the function to solve depend on the marginality of the trader
+        """
+        pass

@@ -126,8 +126,14 @@ class Trader_AA(Trader):
 
             marginality = self.get_marginality(estimate)
 
+        # Calculate alpha
+        temp = 0
+        for i in range(len(self.transactions)):
+            temp += (transactions[i] - estimate)**2
+            alpha = (temp/len(self.transactions))**0.5
+
     def get_marginality(self,estimate):
-        """Get the marginality based on the trade type and estimate to the market equilibrium"""
+        """Get the marginality based on the trader type and estimate of the market equilibrium"""
 
         # Set the comparison method depending on trader type
         comparator = None

@@ -32,6 +32,8 @@ class Trader_AA(Trader):
 
         # A value that influences long term bidding behaviour 
         self.theta = 0
+        self.thetamax = 2
+        self.thetamin = -8
 
         # Our approximation to the market equilibrium
         self.equilibrium = None
@@ -57,7 +59,7 @@ class Trader_AA(Trader):
 
         # Store what marginality this trader is
         self.marginality = Marginality.Neutral;
-
+        self.beta2 = 0.5
 
     def getorder(self,time,countdown,lob):
         """Use the variables we have learnt to create an order"""
@@ -116,11 +118,8 @@ class Trader_AA(Trader):
                 else:
                     ahat = 1 - (a - min(alphas))/(max(alphas) - min(alphas))
             
-            # if len(thetas) < 1
-            #     thetastar = 
-            # else thetastar = (max(thetas) - min(thetas))*ahat*math.exp(-2*ahat) + min(thetas)
-            # self.thetas.append(thetas[-1] + beta*(thetastar - thetas[-1]))
-
+            self.thetastar = (thetamax - thetamin)*ahat*math.exp(-2*ahat) + thetamin
+            self.theta = self.theta + beta2*(thetastar - self.theta)
 
 
             r_shout = caclulate_r_shout()

@@ -1,4 +1,5 @@
-from DefaultTraders import Trader
+from DefaultTraders import 
+import math
 
 class Marginality:
     Intra = 1
@@ -103,10 +104,15 @@ class Trader_AA(Trader):
                 self.alphas.append(a)
 
                 if (max(alphas) == min(alphas)):
-                    ahat = 1 - (a - min(alphas))/(max(alphas) - min(alphas))
-                else:
                     ahat = 1
-                thetastar
+                else:
+                    ahat = 1 - (a - min(alphas))/(max(alphas) - min(alphas))
+            
+            if len(thetas) < 1
+                thetastar = 
+            else thetastar = (max(thetas) - min(thetas))*ahat*math.exp(-2*ahat) + min(thetas)
+            self.thetas.append(thetas[-1] + beta*(thetastar - thetas[-1]))
+
 
 
 

@@ -1,4 +1,6 @@
 from DefaultTraders import Trader
+from numpy import exp
+from numpy import log
 
 class Marginality:
     Intra = 1
@@ -81,7 +83,7 @@ class Trader_AA(Trader):
         
         change = self.react_to_changes(trade,lob)
 
-        # If there have been some previous transactions then approximate the equlibrium
+        # If there have been some previous transactions then approximate the equilibrium
         if len(self.transactions) > 0:
             # If there has been any change then recalculate the equilibrium and our marginality
             if change:
@@ -192,4 +194,36 @@ class Trader_AA(Trader):
         Both the price and the function to solve depend on the marginality of the trader
         """
         pass
+
+    def calculate_target_price(self, r):
+        """ 
+
+        Using the current traders statistics and a set aggressiveness (r), calculate the correct target_price.
+        This takes into consideration: equilibrium approximation, limit price, trader job, marginality (a different formula for each) and theta (long term learning)
+        r has been left as an argument so that r can be tested to approximate r_shout
+
+        *** WITH ALL OF THESE EQUATIONS WE HAVE NEGATED r SO THAT AGRESSIVENESS IS POSITIVE AND THE DIAGRAMS MATCH THOSE IN THE PAPER ***
+
+        """
+
+        if r > 1 or r < -1:
+            assert('r should be in the range (-1,1)')
+
+        if self.marginality == Marginality.Intra:
+            if self.job == 'Bid':
+                if r <= 0:
+                    # orig
+                    # return self.equilibrium * (1 - r * exp(self.theta * (r-1)))
+                    return self.equilibrium * (1 + r * exp(self.theta * (-r-1)))
+                elif r > 0:
+                    theta_underscore = ((self.equilibrium * exp(-self.theta)) / (self.limit - self.equilibrium)) - 1
+                    # return (self.limit - self.equilibrium) * (1 - (r+1) * exp(r * theta_underscore)) + self.equilibrium
+                    return (self.limit - self.equilibrium) * (1 - (-r+1) * exp(-r * theta_underscore)) + self.equilibrium
+            elif self.job == 'Ask':
+                if r <= 0:
+                    return self.equilibrium + (max(self.transactions) - self.equilibrium) * (-r)*exp(-(r+1)*self.theta)
+                elif r > 0:
+                    theta_underscore = log((max(self.transactions) - self.equilibrium)/(self.equilibrium-self.limit)) - self.theta
+                    return self.equilibrium + (self.equilibrium - self.limit) * (-r) * exp((-r+1)*theta_underscore)
+                
 

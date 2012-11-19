@@ -1,3 +1,6 @@
+from BSE import bse_sys_minprice
+from BSE import bse_sys_maxprice
+
 from DefaultTraders import Trader
 from numpy import exp
 from numpy import log
@@ -41,6 +44,10 @@ class Trader_AA(Trader):
 
         self.limit = None
         self.job = None 
+
+        # store the max and min aloud on the market so that these values can be changed for testing
+        self.p_min = bse_sys_minprice
+        self.p_max = bse_sys_maxprice
 
         # Store the value of the long term learning rate at every point in time (may be repeats)
         self.thetas = []
@@ -109,10 +116,10 @@ class Trader_AA(Trader):
                 else:
                     ahat = 1 - (a - min(alphas))/(max(alphas) - min(alphas))
             
-            if len(thetas) < 1
-                thetastar = 
-            else thetastar = (max(thetas) - min(thetas))*ahat*math.exp(-2*ahat) + min(thetas)
-            self.thetas.append(thetas[-1] + beta*(thetastar - thetas[-1]))
+            # if len(thetas) < 1
+            #     thetastar = 
+            # else thetastar = (max(thetas) - min(thetas))*ahat*math.exp(-2*ahat) + min(thetas)
+            # self.thetas.append(thetas[-1] + beta*(thetastar - thetas[-1]))
 
 
 
@@ -227,9 +234,25 @@ class Trader_AA(Trader):
                     return (self.limit - self.equilibrium) * (1 - (-r+1) * exp(-r * theta_underscore)) + self.equilibrium
             elif self.job == 'Ask':
                 if r <= 0:
-                    return self.equilibrium + (max(self.transactions) - self.equilibrium) * (-r)*exp(-(r+1)*self.theta)
+                    return self.equilibrium + (self.p_max - self.equilibrium) * (-r)*exp(-(r+1)*self.theta)
                 elif r > 0:
-                    theta_underscore = log((max(self.transactions) - self.equilibrium)/(self.equilibrium-self.limit)) - self.theta
+                    theta_underscore = log((self.p_max - self.equilibrium)/(self.equilibrium-self.limit)) - self.theta
                     return self.equilibrium + (self.equilibrium - self.limit) * (-r) * exp((-r+1)*theta_underscore)
+
+        if self.marginality == Marginality.Extra:
+            if self.job == 'Bid':
+                if r <= 0:
+                    # orig
+                    # return self.equilibrium * (1 - r * exp(self.theta * (r-1)))
+                    return self.limit * (1 + r * exp(-self.theta * (r+1)))
+                elif r > 0:
+                    return self.limit
+            elif self.job == 'Ask':
+                if r <= 0:
+                    return self.limit + (self.p_max - self.limit) * (-r) * exp(-self.theta * (r+1))
+                elif r > 0:
+                    return self.limit
+
+        
                 
 

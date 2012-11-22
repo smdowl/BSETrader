@@ -51,11 +51,8 @@ class Trader_AA(Trader):
         self.p_min = bse_sys_minprice
         self.p_max = bse_sys_maxprice
 
-        # Store the value of the long term learning rate at every point in time (may be repeats)
-        self.thetas = []
-
         # Store the price volatility at every point in time (may be repeats)
-        self.alphas = []
+        self.alphas = [0]
 
         # Store what marginality this trader is
         self.marginality = Marginality.Neutral;
@@ -103,30 +100,14 @@ class Trader_AA(Trader):
                 self.get_marginality()
             
             # Calculate theta from alpha
-            if len(alphas) < 1:
-                ahat = 1
-            else:
-                temp = 0
-                for i in range(len(self.transactions)):
-                    temp += (transactions[i] - estimate)**2
-                a = (temp/len(self.transactions))**0.5
-                a /= estimate
-                self.alphas.append(a)
-
-                if (max(alphas) == min(alphas)):
-                    ahat = 1
-                else:
-                    ahat = 1 - (a - min(alphas))/(max(alphas) - min(alphas))
             
-            self.thetastar = (thetamax - thetamin)*ahat*math.exp(-2*ahat) + thetamin
-            self.theta = self.theta + beta2*(thetastar - self.theta)
-
+            self.theta = self.calculate_theta()
 
             r_shout = caclulate_r_shout()
 
 
 
-    def get_marginality(self,estimate):
+    def get_marginality(self):
         """Get the marginality based on the trader type and estimate of the market equilibrium"""
 
         # Set the comparison method depending on trader type
@@ -252,6 +233,24 @@ class Trader_AA(Trader):
                 elif r > 0:
                     return self.limit
 
+    def calculate_theta(self):
+        thetastar = self.calculate_thetastar()
+        return self.theta + beta2*(thetastar - self.theta)
+
+    def calculate_thetastar(self,a=None):
+        # if a == None:
+        #     temp = 0
+        #     for i in range(len(self.transactions)):
+        #         temp += (self.transactions[i] - self.equilibrium)**2
+        #     a = (temp/len(self.transactions))**0.5
+        #     a /= self.equilibrium
+        #     self.alphas.append(a)
+
+        if (max(self.alphas) == min(self.alphas)):
+            ahat = 1
+        else:
+            ahat = 1 - (a - min(self.alphas))/(max(self.alphas) - min(self.alphas))
         
-                
+        return (self.thetamax - self.thetamin)*ahat*math.exp(1-ahat) + self.thetamin
+
 

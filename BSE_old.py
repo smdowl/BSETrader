@@ -325,6 +325,7 @@ def market_session(sess_id, starttime, endtime, trader_spec, order_schedule, dum
             chart_file = open(fname,'w')
             for chart in charts:
                 chart_file.write('%s\n' % json.dumps(chart))
+            chart_file.close()
 
         def add_new_orderpoint_to_dictionary(orderpoints,bot_id,time,price):
             """Actually create and add the new orderpoint to the dictionary of lists of orderpoints using the id provided as the key"""

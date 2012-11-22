@@ -238,13 +238,13 @@ class Trader_AA(Trader):
         return self.theta + beta2*(thetastar - self.theta)
 
     def calculate_thetastar(self,a=None):
-        # if a == None:
-        #     temp = 0
-        #     for i in range(len(self.transactions)):
-        #         temp += (self.transactions[i] - self.equilibrium)**2
-        #     a = (temp/len(self.transactions))**0.5
-        #     a /= self.equilibrium
-        #     self.alphas.append(a)
+        if a == None:
+            temp = 0
+            for i in range(len(self.transactions)):
+                temp += (self.transactions[i] - self.equilibrium)**2
+            a = (temp/len(self.transactions))**0.5
+            a /= self.equilibrium
+            self.alphas.append(a)
 
         if (max(self.alphas) == min(self.alphas)):
             ahat = 1

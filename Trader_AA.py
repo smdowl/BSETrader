@@ -35,7 +35,7 @@ class Trader_AA(Trader):
         Trader.__init__(self,ttype, tid, balance)
 
         # Keep track of all previous transaction prices
-        self.transaction_history = []
+        self.transactions = []
         
         # A value for the degree of aggressiveness
         self.r = 0
@@ -47,8 +47,6 @@ class Trader_AA(Trader):
 
         # Our approximation to the market equilibrium
         self.equilibrium = None
-
-        self.transactions = []
 
         # memory of best price & quantity of best bid and ask, on LOB on previous update 
         self.prev_best_bid_price = None
@@ -66,7 +64,11 @@ class Trader_AA(Trader):
 
         # Store what marginality this trader is
         self.marginality = Marginality.Neutral;
+        self.beta1 = 0.5
         self.beta2 = 0.5
+
+        # Store target price
+        self.tau = None
 
     def getorder(self,time,countdown,lob):
         """Use the variables we have learnt to create an order"""
@@ -78,19 +80,7 @@ class Trader_AA(Trader):
             self.limit = self.orders[0].price
             self.job = self.orders[0].otype
 
-            raise Exception('Code just copied from ZIP')
-
-            if self.job == 'Bid':
-                # currently a buyer (working a bid order)
-                self.margin = self.margin_buy
-            else:
-                # currently a seller (working a sell order)
-                self.margin = self.margin_sell
-
-            quoteprice = int(self.limit * (1 + self.margin))
-            self.price = quoteprice
-
-            order=Order(self.tid, self.job, quoteprice, self.orders[0].qty, time)
+            order = Order(self.tid, self.job, self.price, self.orders[0].qty, time)
                 
         return order
         
@@ -100,8 +90,14 @@ class Trader_AA(Trader):
         
         change = self.react_to_changes(trade,lob)
 
+        if len(self.transations) == 0:
+            if self.job == 'Bid':
+                self.price = lob['bids']['best'] + (min(self.limit,lob['asks']['best']) - lob['bids']['best'])/3
+            else:
+                self.price = lob['asks']['best'] - (lob['asks']['best'] - max(self.limit,lob['bids']['best']))/3
+
         # If there have been some previous transactions then approximate the equilibrium
-        if len(self.transactions) > 0:
+        else:
             # If there has been any change then recalculate the equilibrium and our marginality
             if change:
                 # Update our estimate the new market equilibrium
@@ -110,11 +106,16 @@ class Trader_AA(Trader):
                 self.get_marginality()
             
             # Calculate theta from alpha
-            
             self.theta = self.calculate_theta()
 
             r_shout = caclulate_r_shout(lob)
+            self.r = calculate_r(r_shout)
 
+            self.tau = calculate_target_price(self)
+            if self.job == 'Bid':
+                self.price = lob['bids']['best'] + (self.tau - lob['bids']['best'])/3
+            else:
+                self.price = lob['asks']['best'] - (lob['asks']['best'] - self.tau)/3
 
 
     def get_marginality(self):
@@ -224,9 +225,15 @@ class Trader_AA(Trader):
             logger.debug(change)
             break
 
-        return 100
+        return 1
 
-    def calculate_target_price(self, r):
+    def calculate_r(self, r_shout):
+        if r_shout < self.r:
+            delta = 0.95 * r_shout
+        else delta = 1.05 * r_shout
+        return self.r + self.beta1 * (delta - self.r)
+
+    def calculate_target_price(self):
         """ 
 
         Using the current traders statistics and a set aggressiveness (r), calculate the correct target_price.

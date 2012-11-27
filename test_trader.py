@@ -2,18 +2,19 @@ from pylab import *
 from BSE import *
 from Trader_AA import Marginality
 from log_maker import make_logger
+import json
 
 logger = make_logger()
 
 def create_trader():
     trader = Trader_AA('AA','B01',0.00)
     trader.equilibrium = 3
-    trader.theta = 4
+    # trader.theta = 4
     trader.job = 'Ask'
     trader.limit = 1
     trader.p_max = 6
-    trader.marginality = Marginality.Extra
-    trader.transactions = [6]
+    trader.marginality = Marginality.Intra
+    trader.transactions = [6,4]
 
     trader.alphas = [0.02,0.15]
 
@@ -42,3 +43,4 @@ lob = get_lob()
 trader = create_trader()
 
 logger.debug("r_shout = %f" % trader.calculate_r_shout(lob))
+

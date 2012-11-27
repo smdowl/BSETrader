@@ -6,6 +6,16 @@ from numpy import exp
 from numpy import log
 import math
 
+import logging
+
+logger = logging.getLogger('trader_AA')
+hdlr = logging.FileHandler('trader_AA.log')
+formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
+hdlr.setFormatter(formatter)
+logger.addHandler(hdlr)
+logger.setLevel(logging.DEBUG)
+# logging.basicConfig(filename='trader_AA_log.log',level=logging.DEBUG)
+
 class Marginality:
     Intra = 1
     Extra = 2
@@ -103,7 +113,7 @@ class Trader_AA(Trader):
             
             self.theta = self.calculate_theta()
 
-            r_shout = caclulate_r_shout()
+            r_shout = caclulate_r_shout(lob)
 
 
 
@@ -181,12 +191,40 @@ class Trader_AA(Trader):
 
         self.equilibrium = estimate_sum / weights
 
-    def calculate_r_shout(self):
+    def calculate_r_shout(self, lob):
         """
         Use current market estimates the work out what aggressiveness would be required to match the current price.
         Both the price and the function to solve depend on the marginality of the trader
         """
-        pass
+
+        price_to_match = lob[self.job.lower()+'s']['best']
+
+        # Work out which direction r should move in if it results in a target price greater than the price_to_match
+        if self.job == 'Ask': 
+            iterate_multiplier = -1
+            bid_range = self.p_max - self.limit
+        else :
+            iterate_multiplier = 1
+            bid_range = self.limit
+
+        last_r = 0
+        r = 0
+        target_price = self.calculate_target_price(r)
+
+        # how close to the correct price do we want to get
+        limit = 0.1
+        
+        i=1
+        while abs(target_price - price_to_match) > limit:
+            i=i+1
+            target_price = self.calculate_target_price(r)
+            logger.debug(target_price)
+
+            change = math.copysign(1,(price_to_match - target_price) * iterate_multiplier)
+            logger.debug(change)
+            break
+
+        return 100
 
     def calculate_target_price(self, r):
         """ 
@@ -222,8 +260,6 @@ class Trader_AA(Trader):
         if self.marginality == Marginality.Extra:
             if self.job == 'Bid':
                 if r <= 0:
-                    # orig
-                    # return self.equilibrium * (1 - r * exp(self.theta * (r-1)))
                     return self.limit * (1 + r * exp(-self.theta * (r+1)))
                 elif r > 0:
                     return self.limit

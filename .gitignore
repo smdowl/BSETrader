@@ -30,3 +30,4 @@ pip-log.txt
 *.pyc
 .DS_Store
 *.json
+*.log

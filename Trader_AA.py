@@ -1,19 +1,17 @@
 from BSE import bse_sys_minprice
 from BSE import bse_sys_maxprice
+from BSE import Order
 
 from DefaultTraders import Trader
 from numpy import exp
 from numpy import log
 import math
 
-import logging
+from log_maker import make_logger
 
-logger = logging.getLogger('trader_AA')
-hdlr = logging.FileHandler('trader_AA.log')
-formatter = logging.Formatter('%(asctime)s %(levelname)s %(message)s')
-hdlr.setFormatter(formatter)
-logger.addHandler(hdlr)
-logger.setLevel(logging.DEBUG)
+from TraderUtils import dump_trader
+
+logger = make_logger("trader_AA")
 # logging.basicConfig(filename='trader_AA_log.log',level=logging.DEBUG)
 
 class Marginality:
@@ -29,9 +27,9 @@ def less_than(a,b):
 
 class Trader_AA(Trader):
     """ Adaptive Aggressive """
-    def __init__(self, ttype, tid, balance):
-        """Call Trader's init method then add extra iVars"""
 
+    def __init__(self, ttype, tid, balance, initial_data = None):
+        """Call Trader's init method then add extra iVars"""
         Trader.__init__(self,ttype, tid, balance)
 
         # Keep track of all previous transaction prices
@@ -39,6 +37,8 @@ class Trader_AA(Trader):
         
         # A value for the degree of aggressiveness
         self.r = 0
+
+        self.price = None
 
         # A value that influences long term bidding behaviour 
         self.theta = 0
@@ -70,9 +70,24 @@ class Trader_AA(Trader):
         # Store target price
         self.tau = None
 
+        # erase the contents of the file that tracks the trader
+        f = open('trader.json','w')
+        f.close()
+
+    @classmethod
+    def init_from_json(cls, json_string):
+        trader = cls(None,None,None)
+        data = json.loads(json_string)
+        for key in data:
+            setattr(trader, key, data[key])
+        return trader
+
     def getorder(self,time,countdown,lob):
         """Use the variables we have learnt to create an order"""
-        if len(self.orders) < 1:
+
+        dump_trader(self,time)
+
+        if len(self.orders) < 1 or self.price == None:
             self.active = False
             order = None
         else:
@@ -81,20 +96,30 @@ class Trader_AA(Trader):
             self.job = self.orders[0].otype
 
             order = Order(self.tid, self.job, self.price, self.orders[0].qty, time)
-                
         return order
         
 
     def respond(self, time, lob, trade, verbose):
         """ Learn from what just happened in the market"""
         
-        change = self.react_to_changes(trade,lob)
+        change = self.check_for_changes(trade,lob)
 
-        if len(self.transations) == 0:
-            if self.job == 'Bid':
-                self.price = lob['bids']['best'] + (min(self.limit,lob['asks']['best']) - lob['bids']['best'])/3
+        if len(self.transactions) == 0:
+            best_bid = lob['bids']['best']
+            best_ask = lob['asks']['best']
+
+            if not best_bid:
+                best_bid = bse_sys_minprice
+
+            if not best_ask:
+                best_ask = bse_sys_maxprice
+
+            if self.job == 'Bid' and self.limit < best_bid:
+                self.price = best_bid + (min(self.limit,best_ask) - best_bid)/3
+            elif self.job == 'Ask' and self.limit > best_ask:
+                self.price = best_ask - (best_ask - max(self.limit,best_bid))/3
             else:
-                self.price = lob['asks']['best'] - (lob['asks']['best'] - max(self.limit,lob['bids']['best']))/3
+                self.price = None
 
         # If there have been some previous transactions then approximate the equilibrium
         else:
@@ -111,12 +136,13 @@ class Trader_AA(Trader):
             r_shout = caclulate_r_shout(lob)
             self.r = calculate_r(r_shout)
 
-            self.tau = calculate_target_price(self)
-            if self.job == 'Bid':
+            self.tau = self.calculate_target_price(self.r)
+            if self.job == 'Bid' and self.limit < best_bid:
                 self.price = lob['bids']['best'] + (self.tau - lob['bids']['best'])/3
-            else:
+            elif self.job == 'Ask' and self.limit > best_ask:
                 self.price = lob['asks']['best'] - (lob['asks']['best'] - self.tau)/3
-
+            else:
+                self.price = None
 
     def get_marginality(self):
         """Get the marginality based on the trader type and estimate of the market equilibrium"""
@@ -135,7 +161,7 @@ class Trader_AA(Trader):
         else:
             self.marginality = Marginality.Neutral
 
-    def react_to_changes(self,trade,lob):
+    def check_for_changes(self,trade,lob):
         """
         Add any new transactions to the list so that we can use them to approximate the equilibrium
         Returns true if there was a change in the market and false otherwise
@@ -208,8 +234,8 @@ class Trader_AA(Trader):
             iterate_multiplier = 1
             bid_range = self.limit
 
-        last_r = 0
         r = 0
+        last_target_price = 0
         target_price = self.calculate_target_price(r)
 
         # how close to the correct price do we want to get
@@ -217,23 +243,30 @@ class Trader_AA(Trader):
         
         i=1
         while abs(target_price - price_to_match) > limit:
-            i=i+1
             target_price = self.calculate_target_price(r)
-            logger.debug(target_price)
 
             change = math.copysign(1,(price_to_match - target_price) * iterate_multiplier)
-            logger.debug(change)
-            break
 
-        return 1
+            r = r + change * 0.5 ** i
+            
+            # if the target price hasn't changed then we can't get any closer to the price_to_match
+            if target_price == last_target_price:
+                return change
+
+            last_target_price = target_price
+            
+            i=i+1
+
+        return r
 
     def calculate_r(self, r_shout):
         if r_shout < self.r:
             delta = 0.95 * r_shout
-        else delta = 1.05 * r_shout
+        else:
+            delta = 1.05 * r_shout
         return self.r + self.beta1 * (delta - self.r)
 
-    def calculate_target_price(self):
+    def calculate_target_price(self,r):
         """ 
 
         Using the current traders statistics and a set aggressiveness (r), calculate the correct target_price.
@@ -295,5 +328,3 @@ class Trader_AA(Trader):
             ahat = 1 - (a - min(self.alphas))/(max(self.alphas) - min(self.alphas))
         
         return (self.thetamax - self.thetamin)*ahat*math.exp(1-ahat) + self.thetamin
-
-

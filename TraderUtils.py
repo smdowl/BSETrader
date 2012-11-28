@@ -1,8 +1,15 @@
 import json
 
+def __create_filepath(trader):
+    return 'output/trader%s.json' % trader.tid
+
+def wipe_trader_file(trader):
+    f = open(__create_filepath(trader),'w')
+    f.close
+
 def dump_trader(trader,time):
     """ Output the current state of the trader """
-    with open('trader.json','a') as f:
+    with open(__create_filepath(trader),'a') as f:
         obj_dict = trader.__dict__.copy()
         obj_dict["time"] = time
 

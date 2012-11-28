@@ -9,7 +9,7 @@ import math
 
 from log_maker import make_logger
 
-from TraderUtils import dump_trader
+import TraderUtils
 
 logger = make_logger("trader_AA")
 # logging.basicConfig(filename='trader_AA_log.log',level=logging.DEBUG)
@@ -67,12 +67,10 @@ class Trader_AA(Trader):
         self.beta1 = 0.5
         self.beta2 = 0.5
 
+        self.eta = 3
+
         # Store target price
         self.tau = None
-
-        # erase the contents of the file that tracks the trader
-        f = open('trader.json','w')
-        f.close()
 
     @classmethod
     def init_from_json(cls, json_string):
@@ -85,9 +83,7 @@ class Trader_AA(Trader):
     def getorder(self,time,countdown,lob):
         """Use the variables we have learnt to create an order"""
 
-        dump_trader(self,time)
-
-        if len(self.orders) < 1 or self.price == None:
+        if len(self.orders) < 1:
             self.active = False
             order = None
         else:
@@ -95,7 +91,13 @@ class Trader_AA(Trader):
             self.limit = self.orders[0].price
             self.job = self.orders[0].otype
 
-            order = Order(self.tid, self.job, self.price, self.orders[0].qty, time)
+            if self.price != None:
+                order = Order(self.tid, self.job, self.price, self.orders[0].qty, time)
+            else:
+                order = None
+        
+        TraderUtils.dump_trader(self,time)
+
         return order
         
 
@@ -104,20 +106,21 @@ class Trader_AA(Trader):
         
         change = self.check_for_changes(trade,lob)
 
+        best_bid = lob['bids']['best']
+        best_ask = lob['asks']['best']
+
+        if not best_bid:
+            best_bid = bse_sys_minprice
+
+        if not best_ask:
+            best_ask = bse_sys_maxprice
+            
         if len(self.transactions) == 0:
-            best_bid = lob['bids']['best']
-            best_ask = lob['asks']['best']
 
-            if not best_bid:
-                best_bid = bse_sys_minprice
-
-            if not best_ask:
-                best_ask = bse_sys_maxprice
-
-            if self.job == 'Bid' and self.limit < best_bid:
-                self.price = best_bid + (min(self.limit,best_ask) - best_bid)/3
-            elif self.job == 'Ask' and self.limit > best_ask:
-                self.price = best_ask - (best_ask - max(self.limit,best_bid))/3
+            if self.job == 'Bid' and self.limit > best_bid:
+                self.price = best_bid + (min(self.limit,best_ask) - best_bid)/self.eta
+            elif self.job == 'Ask' and self.limit < best_ask:
+                self.price = best_ask - (best_ask - max(self.limit,best_bid))/self.eta
             else:
                 self.price = None
 
@@ -137,10 +140,10 @@ class Trader_AA(Trader):
             self.r = calculate_r(r_shout)
 
             self.tau = self.calculate_target_price(self.r)
-            if self.job == 'Bid' and self.limit < best_bid:
-                self.price = lob['bids']['best'] + (self.tau - lob['bids']['best'])/3
-            elif self.job == 'Ask' and self.limit > best_ask:
-                self.price = lob['asks']['best'] - (lob['asks']['best'] - self.tau)/3
+            if self.job == 'Bid' and self.limit > best_bid:
+                self.price = best_bid + (self.tau - best_bid)/self.eta
+            elif self.job == 'Ask' and self.limit < best_ask:
+                self.price = best_ask - (best_ask - self.tau)/self.eta
             else:
                 self.price = None
 

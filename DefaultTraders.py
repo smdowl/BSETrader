@@ -1,5 +1,5 @@
 from BSE import *
-from TraderUtils import dump_trader
+import TraderUtils
 # 
 # Trader superclass
 # all Traders have a trader id, bank balance, blotter, and list of orders to execute
@@ -14,6 +14,8 @@ class Trader:
                 self.willing = 1
                 self.able = 1
                 self.lastquote = None
+
+                TraderUtils.wipe_trader_file(self)
 
                 
         def __str__(self):
@@ -373,4 +375,4 @@ class Trader_ZIP(Trader):
                 self.prev_best_ask_p = lob_best_ask_p
                 self.prev_best_ask_q = lob_best_ask_q
 
-                # dump_trader(self,time)
+                TraderUtils.dump_trader(self,time)

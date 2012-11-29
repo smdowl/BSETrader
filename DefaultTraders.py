@@ -15,7 +15,7 @@ class Trader:
                 self.able = 1
                 self.lastquote = None
 
-                TraderUtils.wipe_trader_file(self)
+                TraderUtils.wipe_trader_files(self)
 
                 
         def __str__(self):
@@ -49,10 +49,13 @@ class Trader:
                         profit = transactionprice-self.orders[0].price        
 
                 self.balance += profit
-                print('%s profit=%d balance=%d ' % (outstr, profit, self.balance))
+                
+                profit_breakdown = {'time':trade['time'], 'limit':self.orders[0].price, 'transactionprice':transactionprice, 'profit':profit, 'balance':self.balance}
+                TraderUtils.store_profits(self,profit_breakdown)
+
+                print('%s transaction price=%d profit=%d balance=%d ' % (outstr, transactionprice, profit, self.balance))
                 self.del_order(order) # delete the order
                 
-
         # specify how trader responds to events in the market
         # this is a null action, expect it to be overloaded with clever things by specific algos
         def respond(self, time, lob, trade, verbose):

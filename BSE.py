@@ -47,13 +47,13 @@
 # could import pylab here for graphing etc
 import sys
 import random
-
+from log_maker import make_logger
 
 bse_sys_minprice = 1    # minimum price in the system, in cents/pennies
 bse_sys_maxprice = 1000 # maximum price in the system, in cents/pennies
 ticksize = 1            # minimum change in price, in cents/pennies
 
-
+logger = make_logger()
 
 # an Order has a trader id, a type (buy/sell) price, quantity, and time it was issued
 class Order:
@@ -306,12 +306,13 @@ class Exchange(Orderbook):
                         print('publish_lob: t=%d' % time)
                         print('BID_lob=%s' % public_data['bids']['lob'])
                         print('ASK_lob=%s' % public_data['asks']['lob'])
+
                 return public_data
 
 
 # After all the BSE objects have been set up, now import the traders
+from Trader_AA import *
 from DefaultTraders import *
-from Trader_AA import Trader_AA
 
 # trade_stats()
 # dump CSV statistics on exchange data and trader population to file for later analysis
@@ -324,6 +325,7 @@ def trade_stats(expid, traders, dumpfile, time, lob):
         n_traders = len(traders)
         for t in traders:
                 ttype = traders[t].ttype
+                logger.debug("%s Trader %s: %i" % (traders[t].tid,traders[t].ttype,traders[t].balance))
                 if ttype in trader_types.keys():
                         t_balance = trader_types[ttype]['balance_sum'] + traders[t].balance
                         n = trader_types[ttype]['n'] + 1
@@ -348,9 +350,6 @@ def trade_stats(expid, traders, dumpfile, time, lob):
         else:
                 dumpfile.write('N, ')
         dumpfile.write('\n');
-
-
-
 
 
 # create a bunch of traders from traders_spec
@@ -594,11 +593,9 @@ def market_session(sess_id, starttime, endtime, trader_spec, order_schedule, tdu
         # initialise the exchange
         exchange = Exchange()
 
-
         # create a bunch of traders
         traders = {}
         trader_stats = populate_market(trader_spec, traders, True, True)
-
 
         # timestep set so that can process all traders in one second
         # NB minimum interarrival time of customer orders may be much less than this!! 

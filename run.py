@@ -18,6 +18,7 @@ order_sched = {'sup':supply_schedule, 'dem':demand_schedule,
 # ('SHVR',5),('SNPR',5),
 # buyers_spec = [('ZIP',5)],('AA',1)
 buyers_spec = [('SHVR',1),('GVWY',1),('SNPR',1),('ZIP',1),('AA',1)]
+# buyers_spec = [('AA',2)]
 sellers_spec = buyers_spec
 
 traders_spec = {'sellers':sellers_spec, 'buyers':buyers_spec}

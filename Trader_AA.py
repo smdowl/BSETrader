@@ -2,7 +2,8 @@ from BSE import bse_sys_minprice
 from BSE import bse_sys_maxprice
 from BSE import Order
 
-from DefaultTraders import Trader
+# from DefaultTraders import Trader
+import DefaultTraders
 from numpy import exp
 from numpy import log
 import math
@@ -25,12 +26,12 @@ def greater_than(a,b):
 def less_than(a,b):
     return a < b
 
-class Trader_AA(Trader):
+class Trader_AA(DefaultTraders.Trader):
     """ Adaptive Aggressive """
 
     def __init__(self, ttype, tid, balance, initial_data = None):
         """Call Trader's init method then add extra iVars"""
-        Trader.__init__(self,ttype, tid, balance)
+        DefaultTraders.Trader.__init__(self,ttype, tid, balance)
 
         # Keep track of all previous transaction prices
         self.transactions = []
@@ -103,6 +104,10 @@ class Trader_AA(Trader):
 
                 if not best_ask:
                     best_ask = bse_sys_maxprice
+
+                print best_ask
+                print self.limit
+                print self.job
 
                 if self.job == 'Bid' and self.limit > best_bid:
                     self.price = best_bid + (min(self.limit,best_ask) - best_bid)/self.eta

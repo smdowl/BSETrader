@@ -72,6 +72,9 @@ class Trader_AA(Trader):
         # Store target price
         self.tau = None
 
+    # def __str__(self):
+    #     return '[limit %s price %s theta %s equilibrium %s theta %s r %s]' % (self.limit, self.price, self.theta, self.equilibrium, self.theta, self.r)
+
     @classmethod
     def init_from_json(cls, json_string):
         trader = cls(None,None,None)
@@ -91,6 +94,24 @@ class Trader_AA(Trader):
             self.limit = self.orders[0].price
             self.job = self.orders[0].otype
 
+            if len(self.transactions) == 0:
+                best_bid = lob['bids']['best']
+                best_ask = lob['asks']['best']
+
+                if not best_bid:
+                    best_bid = bse_sys_minprice
+
+                if not best_ask:
+                    best_ask = bse_sys_maxprice
+
+                if self.job == 'Bid' and self.limit > best_bid:
+                    self.price = best_bid + (min(self.limit,best_ask) - best_bid)/self.eta
+                elif self.job == 'Ask' and self.limit < best_ask:
+                    self.price = best_ask - (best_ask - max(self.limit,best_bid))/self.eta
+                else:
+                    self.price = None
+
+            logger.debug("%s: %s" % (self.tid,str(self.price)))
             if self.price != None:
                 order = Order(self.tid, self.job, self.price, self.orders[0].qty, time)
             else:
@@ -114,18 +135,9 @@ class Trader_AA(Trader):
 
         if not best_ask:
             best_ask = bse_sys_maxprice
-            
-        if len(self.transactions) == 0:
-
-            if self.job == 'Bid' and self.limit > best_bid:
-                self.price = best_bid + (min(self.limit,best_ask) - best_bid)/self.eta
-            elif self.job == 'Ask' and self.limit < best_ask:
-                self.price = best_ask - (best_ask - max(self.limit,best_bid))/self.eta
-            else:
-                self.price = None
 
         # If there have been some previous transactions then approximate the equilibrium
-        else:
+        if len(self.transactions) > 0:
             # If there has been any change then recalculate the equilibrium and our marginality
             if change:
                 # Update our estimate the new market equilibrium
@@ -152,7 +164,7 @@ class Trader_AA(Trader):
 
         # Set the comparison method depending on trader type
         comparator = None
-        if (self.job == 'Ask'):
+        if (self.job == 'Bid'):
             comparator = greater_than
         else:
             comparator = less_than

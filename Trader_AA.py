@@ -104,11 +104,7 @@ class Trader_AA(DefaultTraders.Trader):
 
                 if not best_ask:
                     best_ask = bse_sys_maxprice
-
-                print best_ask
-                print self.limit
-                print self.job
-
+                    
                 if self.job == 'Bid' and self.limit > best_bid:
                     self.price = best_bid + (min(self.limit,best_ask) - best_bid)/self.eta
                 elif self.job == 'Ask' and self.limit < best_ask:

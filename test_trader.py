@@ -6,6 +6,25 @@ import json
 
 logger = make_logger()
 
+class Lob:
+    def __init__(self):
+        self.best_bid = None
+        self.best_ask = None
+
+    def get_lob(self):
+        # return {'bids':{'best':2},'asks':{'best':2.5}}
+        lob={}
+        lob['time']=time
+        lob['bids']={'best':self.best_bid,
+                     'worst':bse_sys_minprice,
+                     'n':0,
+                     'lob':[]}
+        lob['asks']={'best':self.best_ask,
+                     'worst':bse_sys_maxprice,
+                     'n':0,
+                     'lob':[]}
+        return lob
+
 def create_trader():
     trader = Trader_AA('AA','B01',0.00)
     trader.equilibrium = 3
@@ -44,20 +63,6 @@ def create_test_trader_2():
 
     return trader
 
-def get_lob():
-    # return {'bids':{'best':2},'asks':{'best':2.5}}
-    lob={}
-    lob['time']=time
-    lob['bids']={'best':bse_sys_minprice,
-                 'worst':None,
-                 'n':0,
-                 'lob':[]}
-    lob['asks']={'best':bse_sys_maxprice,
-                 'worst':None,
-                 'n':0,
-                 'lob':[]}
-    return lob
-
 
 def plot_rs(trader):
     targets = zeros(21)
@@ -75,19 +80,33 @@ def plot_rs(trader):
     plot(rs, lob['bids']['best'] * ones(len(rs)),'r.-')
     plot(rs, lob['asks']['best'] * ones(len(rs)),'b.-')
 
+def create_trade(time,price):
+    return {'time': time,
+               'price': price,
+               'party1':'T01',
+               'party2':'T02',
+               'qty': 1}
+
+TraderUtils.wipe_trader_files()
+
 total_time = 10
 time = 0
 time_left = total_time - time
 
-lob = get_lob()
-trader = create_trader()
+test_lob = Lob()
+lob = test_lob.get_lob()
 
 trader = create_test_trader_1()
+
+# test trader with empty lob
 order = trader.getorder(time,time_left,lob)
 
+time = time+1
+trade = create_trade(time,3)
+trader.respond(time, lob, trade, True)
+print trade
+print trader
+order = trader.getorder(time,time_left,lob)
 print order
-# logger.debug(trader.getorder())
-# trader.respond()
-# logger.debug(trader)
-# logger.debug("r_shout = %f" % trader.calculate_r_shout(lob))
+
 

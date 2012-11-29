@@ -73,8 +73,8 @@ class Trader_AA(DefaultTraders.Trader):
         # Store target price
         self.tau = None
 
-    # def __str__(self):
-    #     return '[limit %s price %s theta %s equilibrium %s theta %s r %s]' % (self.limit, self.price, self.theta, self.equilibrium, self.theta, self.r)
+    def __str__(self):
+        return '[limit %s price %s theta %s equilibrium %s theta %s r %s transactions %s]' % (self.limit, self.price, self.theta, self.equilibrium, self.theta, self.r, self.transactions)
 
     @classmethod
     def init_from_json(cls, json_string):
@@ -104,7 +104,7 @@ class Trader_AA(DefaultTraders.Trader):
 
                 if not best_ask:
                     best_ask = bse_sys_maxprice
-                    
+
                 if self.job == 'Bid' and self.limit > best_bid:
                     self.price = best_bid + (min(self.limit,best_ask) - best_bid)/self.eta
                 elif self.job == 'Ask' and self.limit < best_ask:
@@ -125,34 +125,33 @@ class Trader_AA(DefaultTraders.Trader):
 
     def respond(self, time, lob, trade, verbose):
         """ Learn from what just happened in the market"""
-        
-        change = self.check_for_changes(trade,lob)
 
-        best_bid = lob['bids']['best']
-        best_ask = lob['asks']['best']
-
-        if not best_bid:
-            best_bid = bse_sys_minprice
-
-        if not best_ask:
-            best_ask = bse_sys_maxprice
-
-        # If there have been some previous transactions then approximate the equilibrium
-        if len(self.transactions) > 0:
-            # If there has been any change then recalculate the equilibrium and our marginality
-            if change:
-                # Update our estimate the new market equilibrium
-                self.calculate_market_equilibrium()
-                # Update the marginality of the trader given the new estimate of the equilibrium price
-                self.get_marginality()
-            
+        # If there has been any change then recalculate the equilibrium and our marginality
+        if trade:
+            self.transactions.append(trade['price'])
+            # Update our estimate the new market equilibrium
+            self.calculate_market_equilibrium()
+            # Update the marginality of the trader given the new estimate of the equilibrium price
+            self.get_marginality()            
             # Calculate theta from alpha
             self.theta = self.calculate_theta()
 
-            r_shout = caclulate_r_shout(lob)
-            self.r = calculate_r(r_shout)
+            r_shout = self.calculate_r_shout(lob)
+            self.r = self.calculate_r(r_shout)
 
             self.tau = self.calculate_target_price(self.r)
+
+        # If there have been some previous transactions then approximate the equilibrium
+        if len(self.transactions) > 0:
+            best_bid = lob['bids']['best']
+            best_ask = lob['asks']['best']
+
+            if not best_bid:
+                best_bid = bse_sys_minprice
+
+            if not best_ask:
+                best_ask = bse_sys_maxprice
+            
             if self.job == 'Bid' and self.limit > best_bid:
                 self.price = best_bid + (self.tau - best_bid)/self.eta
             elif self.job == 'Ask' and self.limit < best_ask:
@@ -185,22 +184,25 @@ class Trader_AA(DefaultTraders.Trader):
         # what, if anything, has happened on the bid LOB?
         bid_improved = False
         bid_hit = False
-        lob_best_bid_p = lob['bids']['best']
-        if lob_best_bid_p != None:
+        lob_best_bid_price = lob['bids']['best']
+
+        if lob_best_bid_price and self.prev_best_bid_price:
             # non-empty bid LOB
-            if self.prev_best_bid_price < lob_best_bid_p :
+            if self.prev_best_bid_price < lob_best_bid_price :
                 # best bid has improved
                 # NB doesn't check if the improvement was by self
                 bid_improved = True
-            elif trade != None and (self.prev_best_bid_price > lob_best_bid_p):
+            elif trade  and (self.prev_best_bid_price > lob_best_bid_price):
                 # previous best bid was hit                              
                 bid_hit = True
-                self.transations.append(self.prev_best_bid_price)
-        elif self.prev_best_bid_price != None:
+                self.transactions.append(self.prev_best_bid_price)
+        elif self.prev_best_bid_price:
             # the bid LOB has been emptied by a hit
             bid_hit = True
-            self.transations.append(self.prev_best_bid_price)
-                        
+            self.transactions.append(self.prev_best_bid_price)
+
+        self.prev_best_bid_price = lob_best_bid_price
+
         # what, if anything, has happened on the ask LOB?
         ask_improved = False
         ask_lifted = False
@@ -211,13 +213,14 @@ class Trader_AA(DefaultTraders.Trader):
                 # best ask has improved -- NB doesn't check if the improvement was by self
                 ask_improved = True
             elif trade != None and (self.prev_best_ask_price < lob_best_ask_p):
-                    # trade happened and best ask price has got worse, or stayed same but quantity reduced -- assume previous best ask was lifted
-                    ask_lifted = True
+                # trade happened and best ask price has got worse, or stayed same but quantity reduced -- assume previous best ask was lifted
+                ask_lifted = True
         elif self.prev_best_ask_price != None:
             # the bid LOB is empty now but was not previously, so must have been hit
             ask_lifted = True
             self.transactions.append(self.prev_best_ask_price)
 
+        self.prev_best_ask_price = lob_best_ask_p
 
         return bid_hit or ask_lifted
 
@@ -242,6 +245,9 @@ class Trader_AA(DefaultTraders.Trader):
 
         price_to_match = lob[self.job.lower()+'s']['best']
 
+        if not price_to_match:
+            price_to_match = lob[self.job.lower()+'s']['worst']            
+
         # Work out which direction r should move in if it results in a target price greater than the price_to_match
         if self.job == 'Ask': 
             iterate_multiplier = -1
@@ -258,7 +264,7 @@ class Trader_AA(DefaultTraders.Trader):
         limit = 0.1
         
         i=1
-        while abs(target_price - price_to_match) > limit:
+        while abs(target_price - price_to_match) > self.limit:
             target_price = self.calculate_target_price(r)
 
             change = math.copysign(1,(price_to_match - target_price) * iterate_multiplier)
@@ -327,7 +333,7 @@ class Trader_AA(DefaultTraders.Trader):
 
     def calculate_theta(self):
         thetastar = self.calculate_thetastar()
-        return self.theta + beta2*(thetastar - self.theta)
+        return self.theta + self.beta2*(thetastar - self.theta)
 
     def calculate_thetastar(self,a=None):
         if a == None:

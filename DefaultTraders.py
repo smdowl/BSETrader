@@ -15,8 +15,6 @@ class Trader:
                 self.able = 1
                 self.lastquote = None
 
-                TraderUtils.wipe_trader_files(self)
-
                 
         def __str__(self):
                 return '[TID %s type %s balance %s blotter %s orders %s]' % (self.tid, self.ttype, self.balance, self.blotter, self.orders)

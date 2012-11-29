@@ -48,6 +48,7 @@
 import sys
 import random
 from log_maker import make_logger
+import TraderUtils
 
 bse_sys_minprice = 1    # minimum price in the system, in cents/pennies
 bse_sys_maxprice = 1000 # maximum price in the system, in cents/pennies
@@ -612,7 +613,8 @@ def market_session(sess_id, starttime, endtime, trader_spec, order_schedule, tdu
         respond_verbose = False
 
         pending_orders = []       
-
+        
+        TraderUtils.wipe_trader_files()
         while time < endtime:
 
                 # how much time left, as a percentage?
@@ -629,7 +631,7 @@ def market_session(sess_id, starttime, endtime, trader_spec, order_schedule, tdu
                 #get an order (or None) from a randomly chosen trader
                 tid = list(traders.keys())[random.randint(0,len(traders)-1)]
                 order = traders[tid].getorder(time,time_left,exchange.publish_lob(time, lob_verbose))
-
+                # print "LOB: \n" + str(exchange.publish_lob(time, lob_verbose)) + "\n"
                 if order != None:
                         # send order to exchange
                         trade = exchange.process_order2(time, order, True)

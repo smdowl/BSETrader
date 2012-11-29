@@ -6,7 +6,7 @@ def trader_filepath():
 def profit_filepath():
     return 'output/trader_profits.json'
 
-def wipe_trader_files(trader):
+def wipe_trader_files():
     f = open(trader_filepath(),'w')
     f.close()
     f = open(profit_filepath(),'w')

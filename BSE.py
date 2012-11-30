@@ -312,7 +312,7 @@ class Exchange(Orderbook):
 
 
 # After all the BSE objects have been set up, now import the traders
-from Trader_AA import *
+from trader_aa import *
 from DefaultTraders import *
 
 # trade_stats()

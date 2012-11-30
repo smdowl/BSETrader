@@ -49,6 +49,7 @@ class Trader:
                 self.balance += profit
                 
                 profit_breakdown = {'time':trade['time'], 'limit':self.orders[0].price, 'transactionprice':transactionprice, 'profit':profit, 'balance':self.balance}
+                
                 TraderUtils.store_profits(self,profit_breakdown)
 
                 print('%s transaction price=%d profit=%d balance=%d ' % (outstr, transactionprice, profit, self.balance))
@@ -375,5 +376,3 @@ class Trader_ZIP(Trader):
                 self.prev_best_bid_q = lob_best_bid_q
                 self.prev_best_ask_p = lob_best_ask_p
                 self.prev_best_ask_q = lob_best_ask_q
-
-                TraderUtils.dump_trader(self,time)

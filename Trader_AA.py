@@ -38,6 +38,7 @@ class Trader_AA(DefaultTraders.Trader):
         
         # A value for the degree of aggressiveness
         self.r = 0
+        self.r_shout = 0
 
         self.price = None
 
@@ -61,7 +62,7 @@ class Trader_AA(DefaultTraders.Trader):
         self.p_max = bse_sys_maxprice
 
         # Store the price volatility at every point in time (may be repeats)
-        self.alphas = [0]
+        self.alphas = []
 
         # Store what marginality this trader is
         self.marginality = Marginality.Neutral;
@@ -74,14 +75,22 @@ class Trader_AA(DefaultTraders.Trader):
         self.tau = None
 
     def __str__(self):
-        return '[limit %s price %s theta %s equilibrium %s theta %s r %s transactions %s]' % (self.limit, self.price, self.theta, self.equilibrium, self.theta, self.r, self.transactions)
+        if self.marginality == Marginality.Intra:
+            marginality = "Intra"
+        elif self.marginality == Marginality.Extra:
+            marginality = "Extra"
+        else:
+            marginality = "None"
+
+        return '[limit:%s price:%s equilibrium:%s tau:%s theta:%s r:%s transactions:%s marginality:%s]' % (self.limit, self.price, self.equilibrium, self.tau, self.theta, self.r, self.transactions, marginality)
 
     @classmethod
-    def init_from_json(cls, json_string):
+    def init_from_json(cls, data):
         trader = cls(None,None,None)
-        data = json.loads(json_string)
+        # data = json.loads(json_string)
         for key in data:
             setattr(trader, key, data[key])
+        
         return trader
 
     def getorder(self,time,countdown,lob):
@@ -113,19 +122,18 @@ class Trader_AA(DefaultTraders.Trader):
                     self.price = None
 
             logger.debug("%s: %s" % (self.tid,str(self.price)))
-            if self.price != None:
-                order = Order(self.tid, self.job, self.price, self.orders[0].qty, time)
+            if self.price:
+                order = Order(self.tid, self.job, int(self.price), self.orders[0].qty, time)
             else:
                 order = None
         
-        TraderUtils.dump_trader(self,time)
+        TraderUtils.dump_trader(self,time,order)
 
         return order
         
 
     def respond(self, time, lob, trade, verbose):
         """ Learn from what just happened in the market"""
-
         # If there has been any change then recalculate the equilibrium and our marginality
         if trade:
             self.transactions.append(trade['price'])
@@ -136,7 +144,7 @@ class Trader_AA(DefaultTraders.Trader):
             # Calculate theta from alpha
             self.theta = self.calculate_theta()
 
-            r_shout = self.calculate_r_shout(lob)
+            r_shout = self.calculate_r_shout(trade['price'])
             self.r = self.calculate_r(r_shout)
 
             self.tau = self.calculate_target_price(self.r)
@@ -153,9 +161,9 @@ class Trader_AA(DefaultTraders.Trader):
                 best_ask = bse_sys_maxprice
             
             if self.job == 'Bid' and self.limit > best_bid:
-                self.price = best_bid + (self.tau - best_bid)/self.eta
+                self.price = best_bid + float(self.tau - best_bid)/self.eta
             elif self.job == 'Ask' and self.limit < best_ask:
-                self.price = best_ask - (best_ask - self.tau)/self.eta
+                self.price = best_ask - float(best_ask - self.tau)/self.eta
             else:
                 self.price = None
 
@@ -230,29 +238,23 @@ class Trader_AA(DefaultTraders.Trader):
         weights = 0
         # Now we want to calculate the estimate of the equilibrium price
         for i in range(len(self.transactions)):
-            weight = 0.9 ** (i-1)
-            
-            estimate_sum += self.transactions[-i] * weight
+            weight = 0.9 ** i
+            estimate_sum += self.transactions[-(i+1)] * weight
             weights += weight
 
         self.equilibrium = estimate_sum / weights
 
-    def calculate_r_shout(self, lob):
+    def calculate_r_shout(self, price_to_match):
         """
         Use current market estimates the work out what aggressiveness would be required to match the current price.
         Both the price and the function to solve depend on the marginality of the trader
-        """
-
-        price_to_match = lob[self.job.lower()+'s']['best']
-
-        if not price_to_match:
-            price_to_match = lob[self.job.lower()+'s']['worst']            
+        """           
 
         # Work out which direction r should move in if it results in a target price greater than the price_to_match
         if self.job == 'Ask': 
             iterate_multiplier = -1
             bid_range = self.p_max - self.limit
-        else :
+        else:
             iterate_multiplier = 1
             bid_range = self.limit
 
@@ -264,7 +266,16 @@ class Trader_AA(DefaultTraders.Trader):
         limit = 0.1
         
         i=1
-        while abs(target_price - price_to_match) > self.limit:
+        try:
+            abs(target_price - price_to_match)
+        except TypeError:
+            print self.limit
+            print target_price
+            print price_to_match
+
+        # print target_price
+        # print price_to_match
+        while abs(target_price - price_to_match) > limit:
             target_price = self.calculate_target_price(r)
 
             change = math.copysign(1,(price_to_match - target_price) * iterate_multiplier)
@@ -278,7 +289,7 @@ class Trader_AA(DefaultTraders.Trader):
             last_target_price = target_price
             
             i=i+1
-
+        
         return r
 
     def calculate_r(self, r_shout):
@@ -348,5 +359,5 @@ class Trader_AA(DefaultTraders.Trader):
             ahat = 1
         else:
             ahat = 1 - (a - min(self.alphas))/(max(self.alphas) - min(self.alphas))
-        
+
         return (self.thetamax - self.thetamin)*ahat*math.exp(1-ahat) + self.thetamin

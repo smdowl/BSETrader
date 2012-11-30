@@ -104,9 +104,20 @@ order = trader.getorder(time,time_left,lob)
 time = time+1
 trade = create_trade(time,3)
 trader.respond(time, lob, trade, True)
-print trade
 print trader
 order = trader.getorder(time,time_left,lob)
-print order
+# print order
+
+lob['bids']['best'] = 2
+trader.respond(time, lob, None, True)
+print trader
+
+trade = create_trade(time,5)
+trader.respond(time, lob, trade, True)
+print trader
+
+# order = trader.getorder(time,time_left,lob)
+# print order
+
 
 

@@ -1071,6 +1071,8 @@ class Trader_AA(Trader):
 # between successive calls, but that does make it inefficient as it has to
 # re-analyse the entire set of traders on each call
 def trade_stats(expid, traders, dumpfile, time, lob):
+
+        do_trade_stats(expid, traders, dumpfile, time, lob, 'A','All');
         do_trade_stats(expid, traders, dumpfile, time, lob, 'B','Buyers');
         do_trade_stats(expid, traders, dumpfile, time, lob, 'S','Sellers');
 
@@ -1087,7 +1089,7 @@ def trade_stats(expid, traders, dumpfile, time, lob):
 def do_trade_stats(expid, traders, dumpfile, time, lob, job, label):
     trader_types = {}
     for t in traders:
-        if traders[t].tid[0] == job:
+        if job == 'A' or traders[t].tid[0] == job:
             ttype = traders[t].ttype
             if ttype in trader_types.keys():
                 t_balance = trader_types[ttype]['balance_sum'] + traders[t].balance

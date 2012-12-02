@@ -108,10 +108,13 @@ def test_instance(trader):
 
     if trader.job == "Bid":
         plot(rs,targets, 'r-')    
+        plot(rs,ones(N) * trader.limit,'r--')
     else:
         plot(rs,targets, 'b-')
+        plot(rs,ones(N) * trader.limit,'b--')
 
-    plot(rs,ones(N) * trader.equilibrium, 'k--')
+    if trader.equilibrium:
+        plot(rs,ones(N) * trader.equilibrium, 'k--')
 
     show()
 

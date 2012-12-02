@@ -87,24 +87,26 @@ def find_loss():
 
     if len(negative_profits):
         traders = TraderProfiles()
-        profit = negative_profits[0]
 
-        trader_pair = traders.find_trader_instance_for_transaction(profit)
-        # trader = traders.find_trader_instance_for_transaction(profit)
+        for profit in negative_profits:
+        # profit = 
+            trader_pair = traders.find_trader_instance_for_transaction(profit)
+            # trader = traders.find_trader_instance_for_transaction(profit)
 
-        print profit
-        # print trader_pair
-        previous_trader = Trader_AA.init_from_json(trader_pair[0])
-        trader = Trader_AA.init_from_json(trader_pair[1])
-        # trader = Trader_AA.init_from_json(trader)
+            # print profit
+            # print trader_pair
+            previous_trader = Trader_AA.init_from_json(trader_pair[0])
+            trader = Trader_AA.init_from_json(trader_pair[1])
+            # trader = Trader_AA.init_from_json(trader)
 
-        print "\n" + str(trader_pair[0]) + "\n"
-        print "\n" + str(trader_pair[1]) + "\n"
-
-        # test_trader.test_instance(trader)
-        print trader_pair[0]
-        # print previous_trader.getorder(None,None,None)
-        # print trader
+            # print "\n" + str(trader_pair[0]) + "\n" + str(trader_pair[1]) + "\n"
+            print profit
+            print trader
+            test_trader.test_instance(trader)
+            # print trader_pair[0]
+            # print previous_trader.getorder(None,None,None)
+            # print previous_trader
+            # print trader
 
 def list_losses():
     profiles = TraderProfiles()

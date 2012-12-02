@@ -1089,7 +1089,6 @@ def do_trade_stats(expid, traders, dumpfile, time, lob, job, label):
     for t in traders:
         if traders[t].tid[0] == job:
             ttype = traders[t].ttype
-            logger.debug("%s Trader %s: %i" % (traders[t].tid,traders[t].ttype,traders[t].balance))
             if ttype in trader_types.keys():
                 t_balance = trader_types[ttype]['balance_sum'] + traders[t].balance
                 n = trader_types[ttype]['n'] + 1

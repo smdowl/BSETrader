@@ -6,6 +6,10 @@ sys.path.insert(0,parentdir)
 from trader_aa import Trader_AA
 from trader_aa import Marginality
 
+# THETAS = range(0,2)
+THETAS = range(0,4)
+# THETAS = range(-8,2)
+
 def test_r_intramarginal():
     traders = []
 
@@ -30,11 +34,8 @@ def test_r_intramarginal():
     traders.append(ask_trader)
 
     N = 40
-    thetas = range(-1,4)
-    # thetas = range(4,5)
-    print thetas
 
-    for theta in thetas:
+    for theta in THETAS:
         targets = zeros((N,2))
 
         rs = zeros(N)
@@ -48,6 +49,8 @@ def test_r_intramarginal():
 
         plot(rs,targets[:,0], 'r-')
         plot(rs,targets[:,1], 'b--')
+
+    title('Intra')
     show()
 
 def test_r_extramarginal():
@@ -74,11 +77,8 @@ def test_r_extramarginal():
     traders.append(ask_trader)
 
     N = 40
-    thetas = range(-1,4)
-    # thetas = range(4,5)
-    print thetas
 
-    for theta in thetas:
+    for theta in THETAS:
         targets = zeros((N,2))
 
         rs = zeros(N)
@@ -92,6 +92,30 @@ def test_r_extramarginal():
 
         plot(rs,targets[:,0], 'r-')
         plot(rs,targets[:,1], 'b--')
+    
+    title('Extramarginal')
     show()
 
-test_r_extramarginal()
+def test_instance(trader):
+    N = 40
+    targets = zeros(N)
+    rs = zeros(N)
+    for i in range(N):
+        r = -1 + 2 * float(i) / N
+
+        targets[i] = trader.calculate_target_price(r)
+        rs[i] = r
+
+    if trader.job == "Bid":
+        plot(rs,targets, 'r-')    
+    else:
+        plot(rs,targets, 'b-')
+
+    plot(rs,ones(N) * trader.equilibrium, 'k--')
+
+    show()
+
+
+if __name__ == "__main__":
+    # test_r_intramarginal()
+    test_r_extramarginal()

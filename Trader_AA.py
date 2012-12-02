@@ -4,6 +4,7 @@ from BSE import Order
 
 # from DefaultTraders import Trader
 import DefaultTraders
+from pylab import *
 from numpy import exp
 from numpy import log
 import math
@@ -44,8 +45,12 @@ class Trader_AA(DefaultTraders.Trader):
 
         # A value that influences long term bidding behaviour 
         self.theta = 0
+        # self.thetamin = -1
+        # self.thetamax = 4
+
+        # *** Temporarily changed to stop crazy results ***
         self.thetamax = 2
-        self.thetamin = -8
+        self.thetamin = 0
 
         # Our approximation to the market equilibrium
         self.equilibrium = None
@@ -93,6 +98,13 @@ class Trader_AA(DefaultTraders.Trader):
         
         return trader
 
+    def add_order(self,order):
+        """ Had issues with no limit price when responding so set it here """
+        DefaultTraders.Trader.add_order(self,order)
+
+        self.limit = self.orders[0].price
+        self.job = self.orders[0].otype
+
     def getorder(self,time,countdown,lob):
         """Use the variables we have learnt to create an order"""
 
@@ -101,8 +113,6 @@ class Trader_AA(DefaultTraders.Trader):
             order = None
         else:
             self.active = True
-            self.limit = self.orders[0].price
-            self.job = self.orders[0].otype
 
             if len(self.transactions) == 0:
                 best_bid = lob['bids']['best']
@@ -127,15 +137,13 @@ class Trader_AA(DefaultTraders.Trader):
             else:
                 order = None
         
-        TraderUtils.dump_trader(self,time,order)
-
         return order
         
 
     def respond(self, time, lob, trade, verbose):
         """ Learn from what just happened in the market"""
         # If there has been any change then recalculate the equilibrium and our marginality
-        if trade:
+        if trade and len(self.orders):
             self.transactions.append(trade['price'])
             # Update our estimate the new market equilibrium
             self.calculate_market_equilibrium()
@@ -143,6 +151,8 @@ class Trader_AA(DefaultTraders.Trader):
             self.get_marginality()            
             # Calculate theta from alpha
             self.theta = self.calculate_theta()
+
+            print "Trade: " + str(trade)
 
             r_shout = self.calculate_r_shout(trade['price'])
             self.r = self.calculate_r(r_shout)
@@ -269,12 +279,11 @@ class Trader_AA(DefaultTraders.Trader):
         try:
             abs(target_price - price_to_match)
         except TypeError:
+            self._test_instance()
             print self.limit
             print target_price
             print price_to_match
 
-        # print target_price
-        # print price_to_match
         while abs(target_price - price_to_match) > limit:
             target_price = self.calculate_target_price(r)
 
@@ -330,7 +339,7 @@ class Trader_AA(DefaultTraders.Trader):
                     theta_underscore = log((self.p_max - self.equilibrium)/(self.equilibrium-self.limit)) - self.theta
                     return self.equilibrium + (self.equilibrium - self.limit) * (-r) * exp((-r+1)*theta_underscore)
 
-        if self.marginality == Marginality.Extra:
+        else: # self.marginality == Marginality.Extra
             if self.job == 'Bid':
                 if r <= 0:
                     return self.limit * (1 + r * exp(-self.theta * (r+1)))

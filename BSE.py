@@ -614,7 +614,6 @@ def market_session(sess_id, starttime, endtime, trader_spec, order_schedule, tdu
 
         pending_orders = []       
         
-        TraderUtils.wipe_trader_files()
         while time < endtime:
 
                 # how much time left, as a percentage?
@@ -648,6 +647,12 @@ def market_session(sess_id, starttime, endtime, trader_spec, order_schedule, tdu
                                 # NB respond just updates trader's internal variables
                                 # doesn't alter the LOB, so processing each trader in
                                 # seqeunce (rather than random/shuffle) isn't a problem
+                                if traders[t].ttype == "AA":
+                                    if traders[t].tid == tid:
+                                        TraderUtils.dump_trader(traders[t], time, order)
+                                    else:
+                                        TraderUtils.dump_trader(traders[t], time, None)
+                                        
                                 traders[t].respond(time, lob, trade, respond_verbose)
 
                 time = time + timestep

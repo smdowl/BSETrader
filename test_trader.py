@@ -1,8 +1,9 @@
 from pylab import *
 from BSE import *
-from Trader_AA import Marginality
+from trader_aa import Marginality
 from log_maker import make_logger
 import json
+from nose.tools import *
 
 logger = make_logger()
 
@@ -11,7 +12,7 @@ class Lob:
         self.best_bid = None
         self.best_ask = None
 
-    def get_lob(self):
+    def get_lob(self,time):
         # return {'bids':{'best':2},'asks':{'best':2.5}}
         lob={}
         lob['time']=time
@@ -63,6 +64,43 @@ def create_test_trader_2():
 
     return trader
 
+def test_case_1():
+    """ 
+    Take a buyer and run a test sequence on it. 
+        1. get an order with an empty lob
+        2. get an order after a trader of 3
+        3. respond to a change in the lob
+        4. respond to another trader at 5
+    """
+    TraderUtils.wipe_trader_files()
+
+    total_time = 10
+    time = 0
+    time_left = total_time - time
+
+    test_lob = Lob()
+    lob = test_lob.get_lob()
+
+    trader = create_test_trader_1()
+
+    # test trader with empty lob
+    order = trader.getorder(time,time_left,lob)
+
+    time = time+1
+
+    trade = create_trade(time,3)
+    trader.respond(time, lob, trade, True)
+    print trader
+    order = trader.getorder(time,time_left,lob)
+    # print order
+
+    lob['bids']['best'] = 2
+    trader.respond(time, lob, None, True)
+    print trader
+
+    trade = create_trade(time,5)
+    trader.respond(time, lob, trade, True)
+    print trader
 
 def plot_rs(trader):
     targets = zeros(21)
@@ -87,37 +125,68 @@ def create_trade(time,price):
                'party2':'T02',
                'qty': 1}
 
-TraderUtils.wipe_trader_files()
+def add_order_to_lob(lob,time,price,trade_type,trader):
+    """ Changes the best bid for the given job type. (Not dependent on whether the bid is actually better) """
+    lob[trade_type]['best'] = price
+    trader.respond(time, lob, None, True)
 
-total_time = 10
-time = 0
-time_left = total_time - time
+def add_trade(lob,time,price,trader):
+    """ Run the sequence that would happen when there is a completed trade. The lob is not updated """
+    trade = create_trade(time,price)
+    trader.respond(time, lob, trade, True)
 
-test_lob = Lob()
-lob = test_lob.get_lob()
+def test_add_trade():
+    time = 0
 
-trader = create_test_trader_1()
+    # run through the standard way first
+    test_lob = Lob()
+    lob = test_lob.get_lob(time)
+    trader = create_test_trader_1()
+    trade = create_trade(time,3)
+    trader.respond(time, lob, trade, True)
+    trader_str1 = str(trader)
 
-# test trader with empty lob
-order = trader.getorder(time,time_left,lob)
+    # run through with add_trade
+    test_lob = Lob()
+    lob = test_lob.get_lob(time)
+    trader = create_test_trader_1()
+    add_trade(lob,time,3,trader)
+    trader_str2 = str(trader)
 
-time = time+1
-trade = create_trade(time,3)
-trader.respond(time, lob, trade, True)
-print trader
-order = trader.getorder(time,time_left,lob)
-# print order
+    assert_equal(trader_str1,trader_str2)
 
-lob['bids']['best'] = 2
-trader.respond(time, lob, None, True)
-print trader
+# TraderUtils.wipe_trader_files()
 
-trade = create_trade(time,5)
-trader.respond(time, lob, trade, True)
-print trader
+# total_time = 10
+# time = 0
+# time_left = total_time - time
+
+# test_lob = Lob()
+# lob = test_lob.get_lob()
+
+# trader = create_test_trader_1()
+
+# # test trader with empty lob
+# order = trader.getorder(time,time_left,lob)
+
+# time = time+1
+
+# trade = create_trade(time,3)
+# trader.respond(time, lob, trade, True)
+# print trader
+
+# order = trader.getorder(time,time_left,lob)
+# # print order
+
+# lob['bids']['best'] = 2
+# trader.respond(time, lob, None, True)
+# print trader
+
+# trade = create_trade(time,5)
+# trader.respond(time, lob, trade, True)
+# print trader
+
+test_add_trade()
 
 # order = trader.getorder(time,time_left,lob)
 # print order
-
-
-

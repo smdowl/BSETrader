@@ -1,5 +1,8 @@
 from BSE import market_session
 import math 
+import sys
+
+from utils.trader_utils import wipe_trader_files
 
 if __name__ == "__main__":
 
@@ -40,14 +43,14 @@ if __name__ == "__main__":
 
         order_sched = {'sup':supply_schedule, 'dem':demand_schedule,'interval':30, 'timemode':'drip-poisson'}
 
-        buyers_spec = [('GVWY',10),('SHVR',10),('ZIC',10),('ZIP',10),('AA',10)]
+        buyers_spec = [('GVWY',1),('SHVR',1),('ZIC',1),('ZIP',1),('AA',1)]
         sellers_spec = buyers_spec
         traders_spec = {'sellers':sellers_spec, 'buyers':buyers_spec}
 
         # run a sequence of trials, one session per trial
 
-        n_trials = 10
-        tdump=open('avg_balance.csv','w')
+        n_trials = 1
+        tdump=open('output/avg_balance.csv','w')
         trial = 1
 
         if n_trials > 1:
@@ -55,6 +58,8 @@ if __name__ == "__main__":
         else:
                dump_all = True
         dump_all = False
+
+        wipe_trader_files()
 
         while (trial<(n_trials+1)):
                trial_id = 'trial%04d' % trial

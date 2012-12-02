@@ -1067,36 +1067,38 @@ class Trader_AA(Trader):
 # between successive calls, but that does make it inefficient as it has to
 # re-analyse the entire set of traders on each call
 def trade_stats(expid, traders, dumpfile, time, lob):
-        trader_types = {}
-        n_traders = len(traders)
-        for t in traders:
-                ttype = traders[t].ttype
-                if ttype in trader_types.keys():
-                        t_balance = trader_types[ttype]['balance_sum'] + traders[t].balance
-                        n = trader_types[ttype]['n'] + 1
-                else:
-                        t_balance = traders[t].balance
-                        n = 1
-                trader_types[ttype] = {'n':n, 'balance_sum':t_balance}
-
-
-        dumpfile.write('%s, %06d, ' % (expid, time))
-        for ttype in sorted(list(trader_types.keys())):
-                n = trader_types[ttype]['n']
-                s = trader_types[ttype]['balance_sum']
-                dumpfile.write('%s, %d, %d, %f, ' % (ttype, s, n, s / float(n)))
+        do_trade_stats(expid, traders, dumpfile, time, lob, 'B','Buyers');
+        do_trade_stats(expid, traders, dumpfile, time, lob, 'S','Sellers');
 
         if lob['bids']['best'] != None :
                 dumpfile.write('%d, ' % (lob['bids']['best']))
         else:
                 dumpfile.write('N, ')
         if lob['asks']['best'] != None :
-                dumpfile.write('%d, ' % (lob['asks']['best']))
+                dumpfile.write('%d, '% (lob['asks']['best']))
         else:
                 dumpfile.write('N, ')
         dumpfile.write('\n');
 
-
+def do_trade_stats(expid, traders, dumpfile, time, lob, job, label):
+    trader_types = {}
+    for t in traders:
+        if traders[t].tid[0] == job:
+            ttype = traders[t].ttype
+            logger.debug("%s Trader %s: %i" % (traders[t].tid,traders[t].ttype,traders[t].balance))
+            if ttype in trader_types.keys():
+                t_balance = trader_types[ttype]['balance_sum'] + traders[t].balance
+                n = trader_types[ttype]['n'] + 1
+            else:
+                t_balance = traders[t].balance
+                n = 1
+            trader_types[ttype]={'n':n, 'balance_sum':t_balance}
+    
+    dumpfile.write('\n%s, %06d, %s: '% (expid, time, label))
+    for ttype in sorted(list(trader_types.keys())):
+        n = trader_types[ttype]['n']
+        s = trader_types[ttype]['balance_sum']
+        dumpfile.write('%s, %d, %d, %f, ' % (ttype, s, n, s/float(n)))
 
 
 

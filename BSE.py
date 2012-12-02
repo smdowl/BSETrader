@@ -52,12 +52,12 @@ import random
 from numpy import exp
 from numpy import log
 
+from utils.trader_utils import dump_trader
+from utils.trader_utils import store_profits
 
 bse_sys_minprice = 1  # minimum price in the system, in cents/pennies
 bse_sys_maxprice = 1000  # maximum price in the system, in cents/pennies
 ticksize = 1  # minimum change in price, in cents/pennies
-
-
 
 # an Order has a trader id, a type (buy/sell) price, quantity, and time it was issued
 class Order:
@@ -365,6 +365,10 @@ class Trader:
                         profit = transactionprice - self.orders[0].price
                 self.balance += profit
                 if verbose: print('%s profit=%d balance=%d ' % (outstr, profit, self.balance))
+                
+                profit_breakdown = {'time':trade['time'], 'limit':self.orders[0].price, 'transactionprice':transactionprice, 'profit':profit, 'balance':self.balance, 'orderowner':order.tid}
+                store_profits(self,profit_breakdown)
+                
                 self.del_order(order)  # delete the order
 
 
@@ -1101,7 +1105,6 @@ def do_trade_stats(expid, traders, dumpfile, time, lob, job, label):
         dumpfile.write('%s, %d, %d, %f, ' % (ttype, s, n, s/float(n)))
 
 
-
 # create a bunch of traders from traders_spec
 # returns tuple (n_buyers, n_sellers)
 # optionally shuffles the pack of buyers and the pack of sellers
@@ -1436,14 +1439,17 @@ def market_session(sess_id, starttime, endtime, trader_spec, order_schedule, dum
                                 # seqeunce (rather than random/shuffle) isn't a problem
                                 traders[t].respond(time, lob, trade, respond_verbose)
 
+                                if traders[t].ttype == "AA":
+                                    dump_trader(traders[t],time,None)
+
                 time = time + timestep
 
 
         # end of an experiment -- dump the tape
-        exchange.tape_dump('transactions.csv', 'w', 'keep')
+        exchange.tape_dump('output/transactions.csv', 'w', 'keep')
 
 
         # write trade_stats for this experiment NB end-of-session summary only
-        trade_stats(sess_id, traders, tdump, time, exchange.publish_lob(time, lob_verbose))
+        trade_stats(sess_id, traders, dumpfile, time, exchange.publish_lob(time, lob_verbose))
 
 #############################

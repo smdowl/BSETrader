@@ -3,8 +3,7 @@ import os,sys
 parentdir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0,parentdir)
 
-from trader_aa import Trader_AA
-from trader_aa import Marginality
+from BSE import Trader_AA
 
 # THETAS = range(0,2)
 THETAS = range(0,4)
@@ -18,7 +17,7 @@ def test_r_intramarginal():
     bid_trader.job = 'Bid'
     bid_trader.limit = 4
     bid_trader.p_max = 6
-    bid_trader.marginality = Marginality.Intra
+    bid_trader.marginality = Trader_AA.Marginality.Intra
     bid_trader.transactions = [6,4]
     bid_trader.alphas = [0.02,0.15]
     traders.append(bid_trader)
@@ -28,7 +27,7 @@ def test_r_intramarginal():
     ask_trader.job = 'Ask'
     ask_trader.limit = 2
     ask_trader.p_max = 6
-    ask_trader.marginality = Marginality.Intra
+    ask_trader.marginality = Trader_AA.Marginality.Intra
     ask_trader.transactions = [6,4]
     ask_trader.alphas = [0.02,0.15]
     traders.append(ask_trader)
@@ -61,7 +60,7 @@ def test_r_extramarginal():
     bid_trader.job = 'Bid'
     bid_trader.limit = 2
     bid_trader.p_max = 6
-    bid_trader.marginality = Marginality.Extra
+    bid_trader.marginality = Trader_AA.Marginality.Extra
     bid_trader.transactions = [6,4]
     bid_trader.alphas = [0.02,0.15]
     traders.append(bid_trader)
@@ -71,7 +70,7 @@ def test_r_extramarginal():
     ask_trader.job = 'Ask'
     ask_trader.limit = 4
     ask_trader.p_max = 6
-    ask_trader.marginality = Marginality.Extra
+    ask_trader.marginality = Trader_AA.Marginality.Extra
     ask_trader.transactions = [6,4]
     ask_trader.alphas = [0.02,0.15]
     traders.append(ask_trader)

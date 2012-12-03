@@ -53,6 +53,8 @@ if __name__ == "__main__":
         tdump=open('output/avg_balance.csv','w')
         trial = 1
 
+        store_traders = True
+
         if n_trials > 1:
                dump_all = False
         else:
@@ -63,7 +65,7 @@ if __name__ == "__main__":
 
         while (trial<(n_trials+1)):
                trial_id = 'trial%04d' % trial
-               market_session(trial_id, start_time, end_time, traders_spec, order_sched, tdump, dump_all)
+               market_session(trial_id, start_time, end_time, traders_spec, order_sched, tdump, dump_all,store_traders)
                tdump.flush()
                trial = trial + 1
         tdump.close()

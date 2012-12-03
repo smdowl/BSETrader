@@ -2,8 +2,8 @@ import os,sys
 parentdir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0,parentdir)
 
-import TraderUtils
-from trader_aa import *
+from BSE import Trader_AA
+from utils import trader_utils
 import json
 from tests import test_trader
 
@@ -14,7 +14,7 @@ class TraderProfiles:
         self.__import_data()
 
     def __import_data(self):
-        with open("../" + TraderUtils.trader_filepath()) as f:
+        with open("../" + trader_utils.trader_filepath()) as f:
             for line in f.readlines():
                 line_dictionary = json.loads(line)
                 
@@ -25,13 +25,17 @@ class TraderProfiles:
                     self.trader_histories[tid] = [line_dictionary]
 
     def find_trader_instance_for_transaction(self,transaction):
-        trader_instances = self.trader_histories[transaction['tid']]
-        previous_trader = None
-        for instance in trader_instances:
-            # print instance
-            if instance['time'] == transaction['time']:
-                return (previous_trader, instance)
-            previous_trader = instance
+        try:
+            trader_instances = self.trader_histories[transaction['tid']]
+            previous_trader = None
+            for instance in trader_instances:
+                # print instance
+                if instance['time'] == transaction['time']:
+                    return (previous_trader, instance)
+                previous_trader = instance
+        except KeyError:
+            print "No trader " + transaction['tid']
+            return None
 
     def find_orders_for_ttype(self,ttype):
         tids = []
@@ -62,7 +66,7 @@ class ProfitHistory:
         self.__import_profits()
 
     def __import_profits(self):
-        with open("../" + TraderUtils.profit_filepath()) as f:
+        with open("../" + trader_utils.profit_filepath()) as f:
             for line in f.readlines():
                 line_dictionary = json.loads(line)
                 
@@ -89,24 +93,23 @@ def find_loss():
         traders = TraderProfiles()
 
         for profit in negative_profits:
-        # profit = 
             trader_pair = traders.find_trader_instance_for_transaction(profit)
             # trader = traders.find_trader_instance_for_transaction(profit)
+            if trader_pair:
+                # print profit
+                # print trader_pair
+                previous_trader = Trader_AA.init_from_json(trader_pair[0])
+                trader = Trader_AA.init_from_json(trader_pair[1])
+                # trader = Trader_AA.init_from_json(trader)
 
-            # print profit
-            # print trader_pair
-            previous_trader = Trader_AA.init_from_json(trader_pair[0])
-            trader = Trader_AA.init_from_json(trader_pair[1])
-            # trader = Trader_AA.init_from_json(trader)
-
-            # print "\n" + str(trader_pair[0]) + "\n" + str(trader_pair[1]) + "\n"
-            print profit
-            print trader
-            test_trader.test_instance(trader)
-            # print trader_pair[0]
-            # print previous_trader.getorder(None,None,None)
-            # print previous_trader
-            # print trader
+                # print "\n" + str(trader_pair[0]) + "\n" + str(trader_pair[1]) + "\n"
+                print profit
+                print str(trader) + "\n"
+                test_trader.test_instance(trader)
+                # print trader_pair[0]
+                # print previous_trader.getorder(None,None,None)
+                # print previous_trader
+                # print trader
 
 def list_losses():
     profiles = TraderProfiles()
@@ -126,7 +129,7 @@ def list_losses():
                 # break
 
 if __name__ == "__main__":
-    find_loss()    
+    find_loss()
 
 
 

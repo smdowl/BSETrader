@@ -107,6 +107,20 @@ class ProfitHistory:
                     negatives.append(record)
         return negatives
 
+    def losses_per_trader(self):
+        losses = {}
+        for key in self.profits:
+            for profit in self.profits[key]:
+                ttype = profit['ttype']
+
+                if profit['profit'] < 0:
+                    if not ttype in losses.keys():
+                        losses[ttype] = 1
+                    else:
+                        losses[ttype] += 1
+        return losses
+
+
 def find_loss():
     history = ProfitHistory()
     negative_profits = history.find_negatives()
@@ -156,12 +170,14 @@ def find_abnormal_trades():
             line_dictionary = json.loads(line)
             
 if __name__ == "__main__":
-    profiles = TraderProfiles()
-    print profiles.find_negative_offers()
-    print profiles.find_not_matching_offers()
+    # profiles = TraderProfiles()
+    # print profiles.find_negative_offers()
+    # print profiles.find_not_matching_offers()
     # print profiles.
 
     history = ProfitHistory()
+    # print history.profits
+    print history.losses_per_trader()
     # for line in history.find_negatives():
     #     print line
     #     print line['job'],line['orders']['otype']

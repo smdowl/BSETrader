@@ -991,6 +991,28 @@ class Trader_AA(Trader):
             delta = 1.05 * r_shout
         return self.r + self.beta1 * (delta - self.r)
 
+
+    def newton(self):
+        # runs Newton-Raphson to find theta_est (the value of theta that makes the 1st 
+        # derivative of eqn(3) continuous)
+        theta_est = self.theta
+        rightHside = ((self.theta * (self.limit - self.equilibrium)) / float(math.exp(self.theta) - 1));
+        i = 0
+        maxNewtonItter = 10
+        maxNewtonError = 0.0001
+
+        while i <= maxNewtonItter:
+            eX = math.exp(theta_est)
+            eXminOne = eX - 1
+            fofX = (((theta_est * self.equilibrium) / float(eXminOne)) - rightHside)
+            if abs(fofX) <= maxNewtonError:
+                break
+            dfofX = ((self.equilibrium / eXminOne) - ((eX * self.equilibrium * theta_est) / float(eXminOne * eXminOne)))
+            theta_est = (theta_est - (fofX / float(dfofX)));
+            i += 1
+        if theta_est == 0.0: theta_est += 0.000001
+        return theta_est
+
     def calculate_target_price(self,r):
         """ 
 
@@ -1014,6 +1036,8 @@ class Trader_AA(Trader):
 
                     # From Trader_AA.py off github
                     theta_underscore = ((self.equilibrium * exp(-self.theta)) / (self.limit - self.equilibrium)) - 1
+                    theta_underscore = self.newton()
+                    # print theta_underscore
                     return self.equilibrium * (1 - (math.exp(-r * theta_underscore) - 1) / float(math.exp(theta_underscore) - 1))
                 elif r > 0:
                     theta_underscore = ((self.equilibrium * exp(-self.theta)) / (self.limit - self.equilibrium)) - 1
@@ -1416,7 +1440,7 @@ def customer_orders(time, last_update, traders, trader_stats, os, pending, verbo
 
 
 # one session in the market
-def market_session(sess_id, starttime, endtime, trader_spec, order_schedule, dumpfile, dump_each_trade,store_traders):
+def market_session(sess_id, starttime, endtime, trader_spec, order_schedule, dumpfile, dump_each_trade,store_traders,store_profits):
         # initialise the exchange
         exchange = Exchange()
 
@@ -1470,8 +1494,8 @@ def market_session(sess_id, starttime, endtime, trader_spec, order_schedule, dum
                                 # so the counterparties update order lists and blotters
                                 trader_utils.store_trade(order,trade,traders[trade['party1']],traders[trade['party2']],time)
                                 
-                                traders[trade['party1']].bookkeep(trade, order, bookkeep_verbose)
-                                traders[trade['party2']].bookkeep(trade, order, bookkeep_verbose)
+                                traders[trade['party1']].bookkeep(trade, order, bookkeep_verbose,store_profits)
+                                traders[trade['party2']].bookkeep(trade, order, bookkeep_verbose,store_profits)
                                 if dump_each_trade: trade_stats(sess_id, traders, tdump, time, exchange.publish_lob(time, lob_verbose))
 
                         # traders respond to whatever happened

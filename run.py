@@ -45,7 +45,8 @@ if __name__ == "__main__":
 
         order_sched = {'sup':supply_schedule, 'dem':demand_schedule,'interval':30, 'timemode':'drip-poisson'}
 
-        trader_count = 1
+        trader_count = 10
+        # ,('AA',trader_count)
         buyers_spec = [('GVWY',trader_count),('SHVR',trader_count),('ZIC',trader_count),('ZIP',trader_count),('AA',trader_count)]
         sellers_spec = buyers_spec
         traders_spec = {'sellers':sellers_spec, 'buyers':buyers_spec}
@@ -65,6 +66,7 @@ if __name__ == "__main__":
         dump_all = False
 
         evolution = False
+        store_profits = False
 
         wipe_trader_files(evolution)
 
@@ -78,7 +80,7 @@ if __name__ == "__main__":
 
             while (trial<(n_trials+1)):
                     trial_id = 'trial%04d' % trial
-                    traders = market_session(trial_id, start_time, end_time, traders_spec, order_sched, tdump, dump_all,store_traders)
+                    traders = market_session(trial_id, start_time, end_time, traders_spec, order_sched, tdump, dump_all,store_traders,store_profits)
 
                     best_balance = -float('inf')
                     worst_balance = float('inf')
@@ -120,6 +122,7 @@ if __name__ == "__main__":
                    market_session(trial_id, start_time, end_time, traders_spec, order_sched, tdump, dump_all,store_traders)
                    tdump.flush()
                    trial = trial + 1
+                   print trial_id + " done!" 
             tdump.close()
 
         sys.exit('Done Now')

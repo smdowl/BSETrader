@@ -14,7 +14,6 @@ if __name__ == "__main__":
         end_time = 600.0
         duration = end_time - start_time
 
-
         # schedule_offsetfn returns time-dependent offset on schedule prices
         def schedule_offsetfn(t):
                 pi2 = math.pi * 2
@@ -47,7 +46,11 @@ if __name__ == "__main__":
 
         trader_count = 10
         # ,('AA',trader_count)
-        buyers_spec = [('GVWY',trader_count),('SHVR',trader_count),('ZIC',trader_count),('ZIP',trader_count),('AA',trader_count)]
+        # 'GVWY','SHVR','ZIC',
+        traders = ['ZIP','AA']
+        buyers_spec = [(trader,trader_count) for trader in traders]
+        # buyers_spec = [('GVWY',trader_count),('SHVR',trader_count),('ZIC',trader_count),('ZIP',trader_count),('AA',trader_count)]
+        
         sellers_spec = buyers_spec
         traders_spec = {'sellers':sellers_spec, 'buyers':buyers_spec}
 
@@ -119,7 +122,7 @@ if __name__ == "__main__":
         else:
             while (trial<(n_trials+1)):
                    trial_id = 'trial%04d' % trial
-                   market_session(trial_id, start_time, end_time, traders_spec, order_sched, tdump, dump_all,store_traders)
+                   market_session(trial_id, start_time, end_time, traders_spec, order_sched, tdump, dump_all,store_traders,store_profits)
                    tdump.flush()
                    trial = trial + 1
                    print trial_id + " done!" 

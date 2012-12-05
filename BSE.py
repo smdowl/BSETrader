@@ -360,7 +360,7 @@ class Trader:
                 self.orders = []
 
 
-        def bookkeep(self, trade, order, verbose):
+        def bookkeep(self, trade, order, verbose,store_profits):
 
                 outstr = '%s (%s) bookkeeping: orders=' % (self.tid, self.ttype)
                 for order in self.orders: outstr = outstr + str(order)
@@ -376,8 +376,9 @@ class Trader:
                 if verbose: print('%s profit=%d balance=%d ' % (outstr, profit, self.balance))
                 
                 # if self.ttype == "AA":
-                profit_breakdown = {'time':trade['time'], 'limit':self.orders[0].price, 'transactionprice':transactionprice, 'profit':profit, 'balance':self.balance, 'orderowner':order.tid}
-                trader_utils.store_profits(self,profit_breakdown)
+                if store_profits:
+                    profit_breakdown = {'time':trade['time'], 'limit':self.orders[0].price, 'transactionprice':transactionprice, 'profit':profit, 'balance':self.balance, 'orderowner':order.tid}
+                    trader_utils.store_profits(self,profit_breakdown)
                 
                 self.del_order(order)  # delete the order
 
@@ -788,10 +789,6 @@ class Trader_AA(Trader):
         
         return trader
 
-    # def bookkeep(self, trade, order, verbose):
-    #     Trader.bookkeep(self, trade, order, verbose)
-
-
     def add_order(self,order):
         """ Had issues with no limit price when responding so set it here """
         Trader.add_order(self,order)
@@ -846,6 +843,8 @@ class Trader_AA(Trader):
                 order = Order(self.tid, self.orders[0].otype, int(self.price), self.orders[0].qty, time)
             else:
                 order = None
+
+            # order = Order(self.tid, self.orders[0].otype, self.orders[0].price, self.orders[0].qty, time)
         
         return order
         
@@ -1483,17 +1482,24 @@ def market_session(sess_id, starttime, endtime, trader_spec, order_schedule, dum
                 tid = list(traders.keys())[random.randint(0, len(traders) - 1)]
                 order = traders[tid].getorder(time, time_left, exchange.publish_lob(time, lob_verbose))
                 
-                if traders[tid].ttype == "AA" and order:
-                    trader_utils.dump_trader(traders[tid],time,order)
+                # if traders[tid].ttype == "AA" and order:
+                #     trader_utils.dump_trader(traders[tid],time,order)
 
                 if order != None:
                         # send order to exchange
                         trade = exchange.process_order2(time, order, process_verbose)
                         if trade != None:
+
                                 # trade occurred,
                                 # so the counterparties update order lists and blotters
-                                trader_utils.store_trade(order,trade,traders[trade['party1']],traders[trade['party2']],time)
+                                # trader_utils.store_trade(order,trade,traders[trade['party1']],traders[trade['party2']],time)
                                 
+                                # if traders[trade['party1']].ttype == "AA":
+                                #     trader_utils.dump_trader(traders[trade['party1']],time,order)
+
+                                # if traders[trade['party2']].ttype == "AA":
+                                #     trader_utils.dump_trader(traders[trade['party2']],time,order)
+
                                 traders[trade['party1']].bookkeep(trade, order, bookkeep_verbose,store_profits)
                                 traders[trade['party2']].bookkeep(trade, order, bookkeep_verbose,store_profits)
                                 if dump_each_trade: trade_stats(sess_id, traders, tdump, time, exchange.publish_lob(time, lob_verbose))

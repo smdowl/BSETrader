@@ -29,7 +29,7 @@ class TraderProfiles:
             trader_instances = self.trader_histories[transaction['tid']]
             previous_trader = None
             for instance in trader_instances:
-                # print instance
+                print instance
                 if instance['time'] == transaction['time']:
                     return (previous_trader, instance)
                 previous_trader = instance
@@ -139,8 +139,8 @@ def find_loss():
                 # trader = Trader_AA.init_from_json(trader)
 
                 # print "\n" + str(trader_pair[0]) + "\n" + str(trader_pair[1]) + "\n"
-                print profit
-                print str(trader) + "\n"
+                # print profit
+                # print str(trader) + "\n"
                 test_trader.test_instance(trader)
                 # print trader_pair[0]
                 # print previous_trader.getorder(None,None,None)
@@ -170,14 +170,21 @@ def find_abnormal_trades():
             line_dictionary = json.loads(line)
             
 if __name__ == "__main__":
-    # profiles = TraderProfiles()
+    profiles = TraderProfiles()
     # print profiles.find_negative_offers()
     # print profiles.find_not_matching_offers()
     # print profiles.
 
     history = ProfitHistory()
+
     # print history.profits
     print history.losses_per_trader()
+
+    losses = history.find_negatives()
+    for loss in  losses:
+        print loss['ttype'], loss['profit']
+        print profiles.find_trader_instance_for_transaction(loss)
+        break
     # for line in history.find_negatives():
     #     print line
     #     print line['job'],line['orders']['otype']

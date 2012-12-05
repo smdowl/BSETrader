@@ -62,7 +62,7 @@ from matplotlib.pyplot import *
 
 from utils import trader_utils
 
-DEBUG_MODE = False
+DEBUG_MODE = True
 
 bse_sys_minprice = 1  # minimum price in the system, in cents/pennies
 bse_sys_maxprice = 1000  # maximum price in the system, in cents/pennies
@@ -375,6 +375,7 @@ class Trader:
                 self.balance += profit
                 if verbose: print('%s profit=%d balance=%d ' % (outstr, profit, self.balance))
                 
+                # if self.ttype == "AA":
                 profit_breakdown = {'time':trade['time'], 'limit':self.orders[0].price, 'transactionprice':transactionprice, 'profit':profit, 'balance':self.balance, 'orderowner':order.tid}
                 trader_utils.store_profits(self,profit_breakdown)
                 
@@ -733,7 +734,7 @@ class Trader_AA(Trader):
         self.price = None
 
         # A value that influences long term bidding behaviour 
-        self.theta = 0
+        self.theta = random.random() * 0.01
         # self.thetamin = -1
         # self.thetamax = 4
 
@@ -842,8 +843,7 @@ class Trader_AA(Trader):
                     (self.job == "Ask" and self.price < self.limit) and 
                     DEBUG_MODE ):
                     pdb.set_trace()
-
-                order = Order(self.tid, self.job, int(self.price), self.orders[0].qty, time)
+                order = Order(self.tid, self.orders[0].otype, int(self.price), self.orders[0].qty, time)
             else:
                 order = None
         
@@ -1010,28 +1010,47 @@ class Trader_AA(Trader):
                 if r <= 0:
                     # orig
                     # return self.equilibrium * (1 - r * exp(self.theta * (r-1)))
-                    return self.equilibrium * (1 + r * exp(self.theta * (-r-1)))
+                    # return self.equilibrium * (1 + r * exp(self.theta * (-r-1)))
+
+                    # From Trader_AA.py off github
+                    theta_underscore = ((self.equilibrium * exp(-self.theta)) / (self.limit - self.equilibrium)) - 1
+                    return self.equilibrium * (1 - (math.exp(-r * theta_underscore) - 1) / float(math.exp(theta_underscore) - 1))
                 elif r > 0:
                     theta_underscore = ((self.equilibrium * exp(-self.theta)) / (self.limit - self.equilibrium)) - 1
-                    # return (self.limit - self.equilibrium) * (1 - (r+1) * exp(r * theta_underscore)) + self.equilibrium
-                    return (self.limit - self.equilibrium) * (1 - (-r+1) * exp(-r * theta_underscore)) + self.equilibrium
+                    # return (self.limit - self.equilibrium) * (1 - (-r+1) * exp(-r * theta_underscore)) + self.equilibrium
+
+                    # From Trader_AA.py off github
+                    return (self.equilibrium + (self.limit - self.equilibrium) * ((math.exp(r * self.theta) - 1) / float(math.exp(self.theta) - 1)))
             else: # self.job == 'Ask':
                 if r <= 0:
-                    return self.equilibrium + (self.p_max - self.equilibrium) * (-r)*exp(-(r+1)*self.theta)
-                elif r > 0:
+                    # return self.equilibrium + (self.p_max - self.equilibrium) * (-r)*exp(-(r+1)*self.theta)
+
+                    # From Trader_AA.py off github
                     theta_underscore = log((self.p_max - self.equilibrium)/(self.equilibrium-self.limit)) - self.theta
-                    return self.equilibrium + (self.equilibrium - self.limit) * (-r) * exp((-r+1)*theta_underscore)
+                    return self.equilibrium + (self.p_max - self.equilibrium) * ((math.exp(-r * theta_underscore) - 1) / (math.exp(theta_underscore) - 1))
+                elif r > 0:
+                    # theta_underscore = log((self.p_max - self.equilibrium)/(self.equilibrium-self.limit)) - self.theta
+                    # return self.equilibrium + (self.equilibrium - self.limit) * (-r) * exp((-r+1)*theta_underscore)
+
+                    # From Trader_AA.py off github
+                    return self.limit + (self.equilibrium - self.limit) * (1 - (math.exp(r * self.theta) - 1) / float(math.exp(self.theta) - 1))
 
         else: # self.marginality == Marginality.Extra
             if self.job == 'Bid':
-                if r <= 0:
-                    return self.limit * (1 + r * exp(-self.theta * (r+1)))
-                elif r > 0:
+                if r < 0:
+                    # return self.limit * (1 + r * exp(-self.theta * (r+1)))
+
+                    # From Trader_AA.py off github                    
+                    return self.limit * (1 - (math.exp(-r * self.theta) - 1) / float(math.exp(self.theta) - 1))
+                elif r >= 0:
                     return self.limit
             else: # self.job == 'Ask':
-                if r <= 0:
-                    return self.limit + (self.p_max - self.limit) * (-r) * exp(-self.theta * (r+1))
-                elif r > 0:
+                if r < 0:
+                    # return self.limit + (self.p_max - self.limit) * (-r) * exp(-self.theta * (r+1))
+
+                    # From Trader_AA.py off github                    
+                    return self.limit + (self.p_max - self.limit) * ((math.exp(-r * self.theta) - 1) / float(math.exp(self.theta) - 1))
+                elif r >= 0:
                     return self.limit
 
     def calculate_theta(self):
@@ -1398,8 +1417,6 @@ def customer_orders(time, last_update, traders, trader_stats, os, pending, verbo
 
 # one session in the market
 def market_session(sess_id, starttime, endtime, trader_spec, order_schedule, dumpfile, dump_each_trade,store_traders):
-
-
         # initialise the exchange
         exchange = Exchange()
 
@@ -1413,7 +1430,6 @@ def market_session(sess_id, starttime, endtime, trader_spec, order_schedule, dum
         # create a bunch of traders
         traders = {}
         trader_stats = populate_market(trader_spec, traders, True, False)
-
 
         # timestep set so that can process all traders in one second
         # NB minimum interarrival time of customer orders may be much less than this!! 
@@ -1432,8 +1448,7 @@ def market_session(sess_id, starttime, endtime, trader_spec, order_schedule, dum
                 # how much time left, as a percentage?
                 time_left = (endtime - time) / duration
 
-# #                print('%s; t=%08.2f (%4.1f) ' % (sess_id, time, time_left*100))
-
+                # print('%s; t=%08.2f (%4.1f) ' % (sess_id, time, time_left*100))
                 trade = None
 
                 pending_orders = customer_orders(time, last_update, traders, trader_stats,
@@ -1443,6 +1458,9 @@ def market_session(sess_id, starttime, endtime, trader_spec, order_schedule, dum
                 # get an order (or None) from a randomly chosen trader
                 tid = list(traders.keys())[random.randint(0, len(traders) - 1)]
                 order = traders[tid].getorder(time, time_left, exchange.publish_lob(time, lob_verbose))
+                
+                if traders[tid].ttype == "AA" and order:
+                    trader_utils.dump_trader(traders[tid],time,order)
 
                 if order != None:
                         # send order to exchange
@@ -1450,6 +1468,8 @@ def market_session(sess_id, starttime, endtime, trader_spec, order_schedule, dum
                         if trade != None:
                                 # trade occurred,
                                 # so the counterparties update order lists and blotters
+                                trader_utils.store_trade(order,trade,traders[trade['party1']],traders[trade['party2']],time)
+                                
                                 traders[trade['party1']].bookkeep(trade, order, bookkeep_verbose)
                                 traders[trade['party2']].bookkeep(trade, order, bookkeep_verbose)
                                 if dump_each_trade: trade_stats(sess_id, traders, tdump, time, exchange.publish_lob(time, lob_verbose))
@@ -1471,8 +1491,8 @@ def market_session(sess_id, starttime, endtime, trader_spec, order_schedule, dum
         # end of an experiment -- dump the tape
         exchange.tape_dump('output/transactions.csv', 'w', 'keep')
 
-
         # write trade_stats for this experiment NB end-of-session summary only
         trade_stats(sess_id, traders, dumpfile, time, exchange.publish_lob(time, lob_verbose))
 
+        return traders
 #############################

@@ -59,6 +59,28 @@ class TraderProfiles:
 
         return orders
 
+    def find_negative_offers(self):       
+        instances = []
+        for tid in self.trader_histories.keys():            
+            for instance in self.trader_histories[tid]:
+                if 'order' in instance:
+                    print instance['job'], instance['order']['price'], instance['orders'][0]['price']
+                    if instance['job'] == "Bid" and instance['order']['price'] > instance['orders'][0]['price']:
+                        instances.append(instance)
+                    elif instance['job'] == "Ask" and instance['order']['price'] < instance['orders'][0]['price']:
+                        instances.append(instance)
+        return instances
+
+    def find_not_matching_offers(self):       
+        """ Find the offers that don't have the same job as the trader """
+        instances = []
+        for tid in self.trader_histories.keys():            
+            for instance in self.trader_histories[tid]:
+                if 'order' in instance:
+                    if instance['job'] != instance['order']['otype']:
+                        instances.append(instance)
+        return instances
+
 class ProfitHistory:
     """ A class to store and extract information from a saved profit history json file """
     def __init__(self):
@@ -128,8 +150,22 @@ def list_losses():
                 # test_trader.test_instance(trader)
                 # break
 
+def find_abnormal_trades():
+    with open("../" + trader_utils.trades_filepath()) as f:
+        for line in f.readlines():
+            line_dictionary = json.loads(line)
+            
 if __name__ == "__main__":
-    find_loss()
+    profiles = TraderProfiles()
+    print profiles.find_negative_offers()
+    print profiles.find_not_matching_offers()
+    # print profiles.
+
+    history = ProfitHistory()
+    # for line in history.find_negatives():
+    #     print line
+    #     print line['job'],line['orders']['otype']
+    # list_losses()
 
 
 

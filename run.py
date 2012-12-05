@@ -1,8 +1,10 @@
 from BSE import market_session
+from BSE import Trader
 import math 
 import sys
 
 from utils.trader_utils import wipe_trader_files
+from utils import simulation_utils
 
 if __name__ == "__main__":
 
@@ -43,17 +45,18 @@ if __name__ == "__main__":
 
         order_sched = {'sup':supply_schedule, 'dem':demand_schedule,'interval':30, 'timemode':'drip-poisson'}
 
-        buyers_spec = [('GVWY',1),('SHVR',1),('ZIC',1),('ZIP',1),('AA',1)]
+        trader_count = 1
+        buyers_spec = [('GVWY',trader_count),('SHVR',trader_count),('ZIC',trader_count),('ZIP',trader_count),('AA',trader_count)]
         sellers_spec = buyers_spec
         traders_spec = {'sellers':sellers_spec, 'buyers':buyers_spec}
 
         # run a sequence of trials, one session per trial
 
-        n_trials = 1
+        n_trials = 5
         tdump=open('output/avg_balance.csv','w')
         trial = 1
 
-        store_traders = True
+        store_traders = False
 
         if n_trials > 1:
                dump_all = False
@@ -61,14 +64,63 @@ if __name__ == "__main__":
                dump_all = True
         dump_all = False
 
-        wipe_trader_files()
+        evolution = False
 
-        while (trial<(n_trials+1)):
-               trial_id = 'trial%04d' % trial
-               market_session(trial_id, start_time, end_time, traders_spec, order_sched, tdump, dump_all,store_traders)
-               tdump.flush()
-               trial = trial + 1
-        tdump.close()
+        wipe_trader_files(evolution)
+
+        if evolution:
+            trader_types = []
+            counts = []
+            for (trader,count) in buyers_spec:
+                trader_types.append(trader)
+                counts.append(count)
+            evolution_output = [counts]
+
+            while (trial<(n_trials+1)):
+                    trial_id = 'trial%04d' % trial
+                    traders = market_session(trial_id, start_time, end_time, traders_spec, order_sched, tdump, dump_all,store_traders)
+
+                    best_balance = -float('inf')
+                    worst_balance = float('inf')
+
+                    for trader in traders.values():
+                        if trader.balance > best_balance:
+                            best_trader = trader.tid
+                            best_balance = trader.balance
+                        elif trader.balance < worst_balance:
+                            worst_trader = trader.tid
+                            worst_balance = trader.balance
+                    
+                    i = 0
+                    if traders[best_trader].ttype == traders[worst_trader].ttype:
+                        # just repeat the previous count
+                        evolution_output.append(evolution_output[-1])
+                    else:
+                        counts = []
+                        for (trader,count) in buyers_spec:
+                            if trader == traders[best_trader].ttype:
+                                count += 1
+                            elif trader == traders[worst_trader].ttype:
+                                count -= 1
+                            
+                            buyers_spec[i] = (trader,count)
+                            counts.append(count)
+                            i += 1
+                        evolution_output.append(counts)
+                        sellers_spec = buyers_spec
+                        traders_spec = {'sellers':sellers_spec, 'buyers':buyers_spec}
+
+                    tdump.flush()
+                    trial = trial + 1
+            simulation_utils.store_simulation_data(trader_types,evolution_output)
+            tdump.close()
+        else:
+            while (trial<(n_trials+1)):
+                   trial_id = 'trial%04d' % trial
+                   market_session(trial_id, start_time, end_time, traders_spec, order_sched, tdump, dump_all,store_traders)
+                   tdump.flush()
+                   trial = trial + 1
+            tdump.close()
 
         sys.exit('Done Now')
 

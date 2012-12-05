@@ -6,7 +6,7 @@ sys.path.insert(0,parentdir)
 from BSE import Trader_AA
 
 # THETAS = range(0,2)
-THETAS = range(0,4)
+THETAS = range(-2,4)
 # THETAS = range(-8,2)
 
 def test_r_intramarginal():
@@ -41,7 +41,7 @@ def test_r_intramarginal():
         for i in range(N):
             r = -1 + 2 * float(i) / N
             for j in range(2):
-                traders[j].theta = theta
+                traders[j].theta = theta + 0.0001 
                 targets[i,j] = traders[j].calculate_target_price(r)
             rs[i] = r
        
@@ -84,7 +84,7 @@ def test_r_extramarginal():
         for i in range(N):
             r = -1 + 2 * float(i) / N
             for j in range(2):
-                traders[j].theta = theta
+                traders[j].theta = theta + 0.00001
                 targets[i,j] = traders[j].calculate_target_price(r)
             rs[i] = r
        
@@ -119,5 +119,5 @@ def test_instance(trader):
 
 
 if __name__ == "__main__":
-    # test_r_intramarginal()
+    test_r_intramarginal()
     test_r_extramarginal()

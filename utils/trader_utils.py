@@ -6,11 +6,18 @@ def trader_filepath():
 def profit_filepath():
     return 'output/trader_profits.json'
 
-def wipe_trader_files():
+def trades_filepath():
+    return 'output/trades.json'
+
+def wipe_trader_files(evolution):
     f = open(trader_filepath(),'w')
     f.close()
     f = open(profit_filepath(),'w')
     f.close()
+
+    if evolution:
+        f = open(trades_filepath(),'w')
+        f.close()
 
 def dump_trader(trader,time,order):
     """ Output the current state of the trader """
@@ -37,4 +44,20 @@ def store_profits(trader,profit_breakdown):
     
     with open(profit_filepath(),'a') as f:
         json_string = json.dumps(profit_breakdown)
-        f.write(json_string + "\n")        
+        f.write(json_string + "\n")
+
+def store_trade(order,trade,trader1,trader2,time):
+    output = {}
+    order_dict = order.__dict__.copy()
+    output['order'] = order_dict
+    output['trader1'] = {'tid':trader1.tid,'ttype':trader1.ttype,'limit':trader1.orders[0].price}
+    output['trader2'] = {'tid':trader2.tid,'ttype':trader2.ttype,'limit':trader2.orders[0].price}
+    output['trade'] = trade
+    output['time'] = time
+    with open(trades_filepath(),'a') as f:
+        json_string = json.dumps(output)
+        f.write(json_string + "\n")
+        
+
+
+

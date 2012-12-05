@@ -108,10 +108,12 @@ class Trader_AA(object):
         
     def updateTarget(self):
         # relates to eqns (3),(4),(5) and (6)
+        
         # For buying
         if self.limit < self.eqlbm:
             # Extra-marginal buyer
-            if self.aggressiveness_buy >= 0: target = self.limit
+            if self.aggressiveness_buy >= 0: 
+                target = self.limit
             else: target = self.limit * (1 - (math.exp(-self.aggressiveness_buy * self.theta) - 1) / float(math.exp(self.theta) - 1))
             self.target_buy = target
         else:
@@ -121,6 +123,7 @@ class Trader_AA(object):
                 theta_est = self.newton4Buying()
                 target = self.eqlbm * (1 - (math.exp(-self.aggressiveness_buy * theta_est) - 1) / float(math.exp(theta_est) - 1))
             self.target_buy = target
+        
         # For selling
         if self.limit > self.eqlbm:
             # Extra-marginal seller
@@ -163,10 +166,12 @@ class Trader_AA(object):
             old_agg = self.aggressiveness_buy 
         else:
             old_agg = self.aggressiveness_sell
+
         if up:
             delta = (1 + self.lambda_r) * self.calcRshout(target, buying) + self.lambda_a
         else:
             delta = (1 - self.lambda_r) * self.calcRshout(target, buying) - self.lambda_a
+
         new_agg = old_agg + self.beta_1 * (delta - old_agg)
         if new_agg > 1.0: new_agg = 1.0
         elif new_agg < 0.0: new_agg = 0.000001

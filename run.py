@@ -10,7 +10,7 @@ tdump=open('output/avg_balance.csv','w')
 
 store_traders = False
 dump_all = False
-evolution = True
+evolution = False
 store_profits = False
 start_time = 0
 
@@ -38,7 +38,7 @@ def run_standard_simulation(end_time, traders_spec, order_sched):
 
         sys.exit('Done Now')
 
-def run_evolution_simulation(end_time, traders_spec, order_sched):
+def run_evolution_simulation(end_time, traders_spec, order_sched, knock_out):
     wipe_trader_files(evolution)
         
     trader_types = []
@@ -65,15 +65,11 @@ def run_evolution_simulation(end_time, traders_spec, order_sched):
                     worst_balance = trader.balance
             
             i = 0
-            # if traders[best_trader].ttype == traders[worst_trader].ttype:
-            #     # just repeat the previous count
-            #     evolution_output.append(evolution_output[-1])
-            # else:
             counts = []
             number_still_in = 0
             for (trader,count) in buyers_spec:
-                # if trader == traders[best_trader].ttype:
-                #     count += 1
+                if not knock_out and trader == traders[best_trader].ttype:
+                    count += 1
 
                 if trader == traders[worst_trader].ttype:
                     count -= 1
@@ -134,8 +130,10 @@ if __name__ == "__main__":
         sellers_spec = buyers_spec
         traders_spec = {'sellers':sellers_spec, 'buyers':buyers_spec}
 
-        run_standard_simulation(end_time, traders_spec, order_sched)
-
+        if evolution:
+            run_evolution_simulation(end_time, traders_spec, order_sched, knock_out)
+        else:
+            run_evolution_simulation(end_time, traders_spec, order_sched)
 
 
 

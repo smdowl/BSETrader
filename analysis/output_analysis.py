@@ -29,7 +29,6 @@ class TraderProfiles:
             trader_instances = self.trader_histories[transaction['tid']]
             previous_trader = None
             for instance in trader_instances:
-                print instance
                 if instance['time'] == transaction['time']:
                     return (previous_trader, instance)
                 previous_trader = instance
@@ -80,6 +79,7 @@ class TraderProfiles:
                     if instance['job'] != instance['order']['otype']:
                         instances.append(instance)
         return instances
+
 
 class ProfitHistory:
     """ A class to store and extract information from a saved profit history json file """
@@ -180,11 +180,13 @@ if __name__ == "__main__":
     # print history.profits
     print history.losses_per_trader()
 
-    losses = history.find_negatives()
-    for loss in  losses:
-        print loss['ttype'], loss['profit']
-        print profiles.find_trader_instance_for_transaction(loss)
-        break
+    # losses = history.find_negatives()
+    # for loss in  losses:
+    #     # print loss['ttype'], loss['profit']
+    #     print loss
+    #     (previous_trader, instance) = profiles.find_trader_instance_for_transaction(loss)
+    #     print instance['job'], instance['orders'][0], instance['order']
+    #     break 
     # for line in history.find_negatives():
     #     print line
     #     print line['job'],line['orders']['otype']

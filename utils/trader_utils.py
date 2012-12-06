@@ -9,15 +9,23 @@ def profit_filepath():
 def trades_filepath():
     return 'output/trades.json'
 
+def lob_orders_filepath():
+    return 'output/lob_orders.json'    
+
 def simulation_filepath():
     return 'output/simulation.csv'
 
 def wipe_trader_files(evolution):
     f = open(trader_filepath(),'w')
     f.close()
+
     f = open(profit_filepath(),'w')
     f.close()
+
     f = open(trades_filepath(),'w')
+    f.close()
+
+    f = open(lob_orders_filepath(),'w')
     f.close()
 
     if evolution:

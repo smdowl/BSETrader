@@ -62,8 +62,6 @@ from matplotlib.pyplot import *
 
 from utils import trader_utils
 
-DEBUG_MODE = True
-
 bse_sys_minprice = 1  # minimum price in the system, in cents/pennies
 bse_sys_maxprice = 1000  # maximum price in the system, in cents/pennies
 ticksize = 1  # minimum change in price, in cents/pennies
@@ -375,7 +373,9 @@ class Trader:
                 self.balance += profit
                 if verbose: print('%s profit=%d balance=%d ' % (outstr, profit, self.balance))
                 
-                # if self.ttype == "AA":
+                # if self.ttype == "AA" and profit < 0:
+                #     pdb.set_trace()
+
                 if store_profits:
                     profit_breakdown = {'time':trade['time'], 'limit':self.orders[0].price, 'transactionprice':transactionprice, 'profit':profit, 'balance':self.balance, 'orderowner':order.tid}
                     trader_utils.store_profits(self,profit_breakdown)
@@ -741,7 +741,7 @@ class Trader_AA(Trader):
 
         # *** Temporarily changed to stop crazy results ***
         self.thetamax = 2
-        self.thetamin = 1
+        self.thetamin = -8
 
         # Our approximation to the market equilibrium
         self.equilibrium = None
@@ -765,7 +765,10 @@ class Trader_AA(Trader):
         self.beta1 = 0.5
         self.beta2 = 0.5
 
-        self.eta = 3
+        # self.p_max = 1
+        # self.p_min = 
+
+        self.eta = 3.0
 
         # Store target price
         self.tau = None
@@ -808,50 +811,51 @@ class Trader_AA(Trader):
 
             best_bid = lob['bids']['best']
             best_ask = lob['asks']['best']
+            self.limit = self.orders[0].price
 
             if not best_bid:
                 best_bid = bse_sys_minprice
 
             if not best_ask:
                 best_ask = bse_sys_maxprice
+            
+            # return Order(self.tid, self.orders[0].otype, self.orders[0].price, self.orders[0].qty, time)
 
-            if len(self.transactions) == 0:
-
-                if self.job == 'Bid' and self.limit > best_bid:
-                    self.price = best_bid + (min(self.limit,best_ask) - best_bid)/self.eta
-                elif self.job == 'Ask' and self.limit < best_ask:
-                    self.price = best_ask - (best_ask - max(self.limit,best_bid))/self.eta
-                else:
-                    self.price = None
+            if len(self.transactions) < 10:
+                if self.job == 'Bid':
+                    self.price = min(self.limit,best_bid + (min(self.limit,best_ask) - best_bid)/self.eta)
+                else:# self.job == 'Ask':
+                    self.price = max(self.limit,best_ask - (best_ask - max(self.limit,best_bid))/self.eta)
             else:
-                self.get_marginality()
-                self.tau = self.calculate_target_price(self.r)
-                
-                if self.job == 'Bid' and self.limit > best_bid:
-                    self.price = best_bid + float(self.tau - best_bid)/self.eta
-                elif self.job == 'Ask' and self.limit < best_ask:
-                    self.price = best_ask - float(best_ask - self.tau)/self.eta
-                else:
-                    self.price = None
+                # self.get_marginality()
+                # self.tau = self.calculate_target_price(self.r)
+                if self.job == 'Bid':
+                    if self.limit > best_bid:
+                        price = math.floor(best_bid + float(self.tau - best_bid)/self.eta)
+                        # Added this in due to rounding errors that were costing us £s!
+                        self.price = min(self.limit,price)
+                    else:
+                        self.price = self.p_min
+                elif self.job == 'Ask':
+                    if self.limit < best_ask:
+                        price = math.ceil(best_ask - float(best_ask - self.tau)/self.eta)
+                        # Added this in due to rounding errors that were costing us £s!
+                        self.price = max(self.limit,price)
+                    else:
+                        self.price = self.p_max
 
 
-            if self.price:
-                if ((self.job == "Bid" and self.price > self.limit) or 
-                    (self.job == "Ask" and self.price < self.limit) and 
-                    DEBUG_MODE ):
-                    pdb.set_trace()
-                order = Order(self.tid, self.orders[0].otype, int(self.price), self.orders[0].qty, time)
-            else:
-                order = None
-
-            # order = Order(self.tid, self.orders[0].otype, self.orders[0].price, self.orders[0].qty, time)
+            if ((self.job == "Bid" and self.price > self.limit) or 
+                (self.job == "Ask" and self.price < self.limit) ):
+                pdb.set_trace()
+            
+            order = Order(self.tid, self.orders[0].otype, self.limit, self.orders[0].qty, time)
         
         return order
         
 
     def respond(self, time, lob, trade, verbose):
         """ Learn from what just happened in the market"""
-
         # If there has been any change then recalculate the equilibrium and our marginality
         if trade and self.limit:
             self.transactions.append(trade['price'])
@@ -859,6 +863,9 @@ class Trader_AA(Trader):
             self.calculate_market_equilibrium()
             # Calculate theta from alpha
             self.theta = self.calculate_theta()
+
+            self.get_marginality()
+            self.tau = self.calculate_target_price(self.r)
 
     def get_marginality(self):
         """Get the marginality based on the trader type and estimate of the market equilibrium"""
@@ -873,8 +880,6 @@ class Trader_AA(Trader):
                 self.marginality  = self.Marginality.Intra
             else:
                 self.marginality  = self.Marginality.Extra
-
-        
 
     def check_for_changes(self,trade,lob):
         """
@@ -1033,8 +1038,8 @@ class Trader_AA(Trader):
                     # return self.equilibrium * (1 - r * exp(self.theta * (r-1)))
                     # return self.equilibrium * (1 + r * exp(self.theta * (-r-1)))
 
-                    # From Trader_AA.py off github
                     theta_underscore = ((self.equilibrium * exp(-self.theta)) / (self.limit - self.equilibrium)) - 1
+                    # From Trader_AA.py off github
                     theta_underscore = self.newton()
                     # print theta_underscore
                     return self.equilibrium * (1 - (math.exp(-r * theta_underscore) - 1) / float(math.exp(theta_underscore) - 1))
@@ -1439,7 +1444,7 @@ def customer_orders(time, last_update, traders, trader_stats, os, pending, verbo
 
 
 # one session in the market
-def market_session(sess_id, starttime, endtime, trader_spec, order_schedule, dumpfile, dump_each_trade,store_traders,store_profits):
+def market_session(sess_id, starttime, endtime, trader_spec, order_schedule, dumpfile, dump_each_trade,store_traders,store_profits,store_lob_orders=False):
         # initialise the exchange
         exchange = Exchange()
 
@@ -1488,17 +1493,20 @@ def market_session(sess_id, starttime, endtime, trader_spec, order_schedule, dum
                 if order != None:
                         # send order to exchange
                         trade = exchange.process_order2(time, order, process_verbose)
+                        if store_lob_orders:
+                            trader_utils.store_lob_orders(exchange)
+
                         if trade != None:
 
                                 # trade occurred,
                                 # so the counterparties update order lists and blotters
-                                # trader_utils.store_trade(order,trade,traders[trade['party1']],traders[trade['party2']],time)
+                                trader_utils.store_trade(order,trade,traders[trade['party1']],traders[trade['party2']],time)
                                 
-                                # if traders[trade['party1']].ttype == "AA":
-                                #     trader_utils.dump_trader(traders[trade['party1']],time,order)
+                                if traders[trade['party1']].ttype == "AA":
+                                    trader_utils.dump_trader(traders[trade['party1']],time,order)
 
-                                # if traders[trade['party2']].ttype == "AA":
-                                #     trader_utils.dump_trader(traders[trade['party2']],time,order)
+                                if traders[trade['party2']].ttype == "AA":
+                                    trader_utils.dump_trader(traders[trade['party2']],time,order)
 
                                 traders[trade['party1']].bookkeep(trade, order, bookkeep_verbose,store_profits)
                                 traders[trade['party2']].bookkeep(trade, order, bookkeep_verbose,store_profits)

@@ -23,8 +23,6 @@ if __name__ == "__main__":
                 amplitude = 100 * t / (c / pi2)
                 offset = gradient + amplitude * math.sin(wavelength * t)
                 return int(round(offset, 0))
-                
-                
 
         # #        range1 = (10, 190, schedule_offsetfn)
         # #        range2 = (200,300, schedule_offsetfn)
@@ -34,8 +32,6 @@ if __name__ == "__main__":
         # #                            {'from':2*duration/3, 'to':end_time, 'ranges':[range1], 'stepmode':'fixed'}
         # #                          ]
 
-
-
         range1 = (95, 95, schedule_offsetfn)
         supply_schedule = [ {'from':start_time, 'to':end_time, 'ranges':[range1], 'stepmode':'fixed'}]
 
@@ -44,10 +40,12 @@ if __name__ == "__main__":
 
         order_sched = {'sup':supply_schedule, 'dem':demand_schedule,'interval':30, 'timemode':'drip-poisson'}
 
-        trader_count = 10
+        trader_count = 8
         # ,('AA',trader_count)
         # 'GVWY','SHVR','ZIC',
-        traders = ['ZIP','AA']
+        traders = ['GVWY','SHVR','ZIC','ZIP','AA']
+        # traders = ['ZIP','AA']
+        # traders = ['AA']
         buyers_spec = [(trader,trader_count) for trader in traders]
         # buyers_spec = [('GVWY',trader_count),('SHVR',trader_count),('ZIC',trader_count),('ZIP',trader_count),('AA',trader_count)]
         
@@ -56,7 +54,7 @@ if __name__ == "__main__":
 
         # run a sequence of trials, one session per trial
 
-        n_trials = 5
+        n_trials = 50
         tdump=open('output/avg_balance.csv','w')
         trial = 1
 
@@ -68,7 +66,7 @@ if __name__ == "__main__":
                dump_all = True
         dump_all = False
 
-        evolution = False
+        evolution = True
         store_profits = False
 
         wipe_trader_files(evolution)
@@ -97,25 +95,35 @@ if __name__ == "__main__":
                             worst_balance = trader.balance
                     
                     i = 0
-                    if traders[best_trader].ttype == traders[worst_trader].ttype:
-                        # just repeat the previous count
-                        evolution_output.append(evolution_output[-1])
-                    else:
-                        counts = []
-                        for (trader,count) in buyers_spec:
-                            if trader == traders[best_trader].ttype:
-                                count += 1
-                            elif trader == traders[worst_trader].ttype:
-                                count -= 1
-                            
-                            buyers_spec[i] = (trader,count)
-                            counts.append(count)
-                            i += 1
-                        evolution_output.append(counts)
-                        sellers_spec = buyers_spec
-                        traders_spec = {'sellers':sellers_spec, 'buyers':buyers_spec}
+                    # if traders[best_trader].ttype == traders[worst_trader].ttype:
+                    #     # just repeat the previous count
+                    #     evolution_output.append(evolution_output[-1])
+                    # else:
+                    counts = []
+                    number_still_in = 0
+                    for (trader,count) in buyers_spec:
+                        # if trader == traders[best_trader].ttype:
+                        #     count += 1
+
+                        if trader == traders[worst_trader].ttype:
+                            count -= 1
+                        
+                        if count > 0:
+                            number_still_in += 1
+
+                        buyers_spec[i] = (trader,count)
+                        counts.append(count)
+                        i += 1
+                    evolution_output.append(counts)
+                    
+                    if number_still_in == 1:
+                        break
+
+                    sellers_spec = buyers_spec
+                    traders_spec = {'sellers':sellers_spec, 'buyers':buyers_spec}
 
                     tdump.flush()
+                    print str(trial) + " done!" 
                     trial = trial + 1
             simulation_utils.store_simulation_data(trader_types,evolution_output)
             tdump.close()

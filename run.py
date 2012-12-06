@@ -36,13 +36,7 @@ def run_standard_simulation(end_time, traders_spec, order_sched):
                print trial_id + " done!" 
         tdump.close()
 
-<<<<<<< Updated upstream
-        start_time = 0.0
-        end_time = 300.0
-        duration = end_time - start_time
-=======
         sys.exit('Done Now')
->>>>>>> Stashed changes
 
 def run_evolution_simulation(end_time, traders_spec, order_sched):
     wipe_trader_files(evolution)

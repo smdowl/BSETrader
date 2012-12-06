@@ -128,12 +128,14 @@ if __name__ == "__main__":
         buyers_spec = [(trader,trader_count) for trader in traders]
         # buyers_spec = [('GVWY',trader_count),('SHVR',trader_count),('ZIC',trader_count),('ZIP',trader_count),('AA',trader_count)]
         sellers_spec = buyers_spec
+
         traders_spec = {'sellers':sellers_spec, 'buyers':buyers_spec}
 
         if evolution:
+            knock_out = True
             run_evolution_simulation(end_time, traders_spec, order_sched, knock_out)
         else:
-            run_evolution_simulation(end_time, traders_spec, order_sched)
+            run_standard_simulation(end_time, traders_spec, order_sched)
 
 
 

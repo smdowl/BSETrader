@@ -1166,7 +1166,6 @@ class Trader_AA(Trader):
 # between successive calls, but that does make it inefficient as it has to
 # re-analyse the entire set of traders on each call
 def trade_stats(expid, traders, dumpfile, time, lob):
-
         #do_trade_stats(expid, traders, dumpfile, time, lob, 'A','All');
         do_trade_stats_new(expid, traders, dumpfile, time, lob, 'A','All');
         #do_trade_stats(expid, traders, dumpfile, time, lob, 'B','Buyers');
@@ -1180,6 +1179,7 @@ def trade_stats(expid, traders, dumpfile, time, lob):
         #        dumpfile.write('%d, '% (lob['asks']['best']))
         #else:
         #        dumpfile.write('N, ')
+
         dumpfile.write('\n');
 
 def do_trade_stats(expid, traders, dumpfile, time, lob, job, label):

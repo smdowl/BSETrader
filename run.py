@@ -11,7 +11,7 @@ if __name__ == "__main__":
         # set up parameters for the session
 
         start_time = 0.0
-        end_time = 600.0
+        end_time = 300.0
         duration = end_time - start_time
 
         # schedule_offsetfn returns time-dependent offset on schedule prices
@@ -42,12 +42,12 @@ if __name__ == "__main__":
         range1 = (105, 105, schedule_offsetfn)
         demand_schedule = [ {'from':start_time, 'to':end_time, 'ranges':[range1], 'stepmode':'fixed'}]
 
-        order_sched = {'sup':supply_schedule, 'dem':demand_schedule,'interval':30, 'timemode':'drip-poisson'}
+        order_sched = {'sup':supply_schedule, 'dem':demand_schedule,'interval':30, 'timemode':'periodic'}
 
         trader_count = 10
         # ,('AA',trader_count)
         # 'GVWY','SHVR','ZIC',
-        traders = ['ZIP','AA']
+        traders = ['GVWY','SHVR','ZIC','ZIP','SNPR']
         buyers_spec = [(trader,trader_count) for trader in traders]
         # buyers_spec = [('GVWY',trader_count),('SHVR',trader_count),('ZIC',trader_count),('ZIP',trader_count),('AA',trader_count)]
         
@@ -56,7 +56,7 @@ if __name__ == "__main__":
 
         # run a sequence of trials, one session per trial
 
-        n_trials = 5
+        n_trials = 20
         tdump=open('output/avg_balance.csv','w')
         trial = 1
 
@@ -65,10 +65,10 @@ if __name__ == "__main__":
         if n_trials > 1:
                dump_all = False
         else:
-               dump_all = True
+               dump_all = False
         dump_all = False
 
-        evolution = False
+        evolution = True
         store_profits = False
 
         wipe_trader_files(evolution)

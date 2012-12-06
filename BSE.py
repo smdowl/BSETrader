@@ -464,6 +464,32 @@ class Trader_Shaver(Trader):
 
                 return order
 
+class Trader_Shaver_Plus(Trader):
+
+        def getorder(self, time, countdown, lob):
+                if len(self.orders) < 1:
+                        order = None
+                else:
+                        limitprice = self.orders[0].price
+                        otype = self.orders[0].otype
+                        if otype == 'Bid':
+                                if lob['bids']['n'] > 0:
+                                        quoteprice = lob['bids']['best'] + ((100/countdown)+1)
+                                        if quoteprice > limitprice :
+                                                quoteprice = limitprice
+                                else:
+                                        quoteprice = lob['bids']['worst']
+                        else:
+                                if lob['asks']['n'] > 0:
+                                        quoteprice = lob['asks']['best'] - ((100/countdown)+1)
+                                        if quoteprice < limitprice:
+                                                quoteprice = limitprice
+                                else:
+                                        quoteprice = lob['asks']['worst']
+                        self.lastquote = quoteprice
+                        order = Order(self.tid, otype, quoteprice, self.orders[0].qty, time)
+
+                return order
 
 # Trader subclass Sniper
 # Based on Shaver,
@@ -1136,18 +1162,19 @@ class Trader_AA(Trader):
 # re-analyse the entire set of traders on each call
 def trade_stats(expid, traders, dumpfile, time, lob):
 
-        do_trade_stats(expid, traders, dumpfile, time, lob, 'A','All');
-        do_trade_stats(expid, traders, dumpfile, time, lob, 'B','Buyers');
-        do_trade_stats(expid, traders, dumpfile, time, lob, 'S','Sellers');
+        #do_trade_stats(expid, traders, dumpfile, time, lob, 'A','All');
+        do_trade_stats_new(expid, traders, dumpfile, time, lob, 'A','All');
+        #do_trade_stats(expid, traders, dumpfile, time, lob, 'B','Buyers');
+        #do_trade_stats(expid, traders, dumpfile, time, lob, 'S','Sellers');
 
-        if lob['bids']['best'] != None :
-                dumpfile.write('%d, ' % (lob['bids']['best']))
-        else:
-                dumpfile.write('N, ')
-        if lob['asks']['best'] != None :
-                dumpfile.write('%d, '% (lob['asks']['best']))
-        else:
-                dumpfile.write('N, ')
+        #if lob['bids']['best'] != None :
+        #        dumpfile.write('%d, ' % (lob['bids']['best']))
+        #else:
+        #        dumpfile.write('N, ')
+        #if lob['asks']['best'] != None :
+        #        dumpfile.write('%d, '% (lob['asks']['best']))
+        #else:
+        #        dumpfile.write('N, ')
         dumpfile.write('\n');
 
 def do_trade_stats(expid, traders, dumpfile, time, lob, job, label):
@@ -1163,11 +1190,36 @@ def do_trade_stats(expid, traders, dumpfile, time, lob, job, label):
                 n = 1
             trader_types[ttype]={'n':n, 'balance_sum':t_balance}
     
-    dumpfile.write('\n%s, %06d, %s: '% (expid, time, label))
+    dumpfile.write('\n%s, %06d, %s, '% (expid, time, label))
     for ttype in sorted(list(trader_types.keys())):
         n = trader_types[ttype]['n']
         s = trader_types[ttype]['balance_sum']
         dumpfile.write('%s, %d, %d, %f, ' % (ttype, s, n, s/float(n)))
+
+def do_trade_stats_new(expid, traders, dumpfile, time, lob, job, label):
+    trader_types = {}
+    for t in traders:
+        if job == 'A' or traders[t].tid[0] == job: 
+            ttype = traders[t].ttype
+            if ttype in trader_types.keys():
+                t_balance = trader_types[ttype]['balance_sum'] + traders[t].balance
+                n = trader_types[ttype]['n'] + 1
+            else:
+                t_balance = traders[t].balance
+                n = 1
+            trader_types[ttype]={'n':n, 'balance_sum':t_balance}
+
+    if expid[-1] == '1' and expid[-2] == '0':
+        for ttype in sorted(list(trader_types.keys())):
+            dumpfile.write('%s, ' % ttype)
+        dumpfile.write('\n')
+
+    dumpfile.write('%s, %s, '% (job, expid[-1]))
+    for ttype in sorted(list(trader_types.keys())):
+        n = trader_types[ttype]['n']
+        s = trader_types[ttype]['balance_sum']
+        dumpfile.write('%f, ' % (s/float(n)))
+  
 
 
 # create a bunch of traders from traders_spec
@@ -1188,6 +1240,8 @@ def populate_market(traders_spec, traders, shuffle, verbose):
                         return Trader_ZIP('ZIP', name, 0.00)
                 elif robottype == 'AA':
                         return Trader_AA('AA', name, 0.00)
+                elif robottype == 'SHVP':
+                        return Trader_Shaver_Plus('SHVP', name, 0.00)
                 else:
                         sys.exit('FATAL: don\'t know robot type %s\n' % robottype)
 

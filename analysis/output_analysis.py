@@ -283,26 +283,8 @@ def plot_order_vs_limit(tids,all):
                     trader['taus'] = vstack((trader['taus'],tau))
 
                 traders[tid] = trader
-                
-                # orders = vstack((orders,(row[4],row[3])))
-                # limits = vstack((limits,(time,limit_price)))
-                # if len(row) > 5:
-                #     equilibriums = vstack((equilibriums, (time,row[5])))
-                #     if len(rs) == 0:
-                #         rs = array([time,row[6]])
-                #     else:
-                #         rs = vstack((rs, [time,row[6]]))
-                # else:
-                #     equilibriums = vstack((equilibriums, (row[4],0)))
-
-                # traders[tid]['orders'] = orders
-                # traders[tid]['limits'] = limits
-                # traders[tid]['equilibriums'] = equilibriums
-                # traders[tid]['rs'] = rs
 
     (all_ts, transactions) = get_transactions()
-    maximum = scipy.stats.scoreatpercentile(array(points),80)
-    minimum = scipy.stats.scoreatpercentile(array(points),1)
 
     # pdb.set_trace()
 
@@ -360,7 +342,7 @@ def find_abnormal_trades():
             
 if __name__ == "__main__":
     buyer_tids = find_buyers_orders()
-    plot_order_vs_limit(buyer_tids,True)
+    plot_order_vs_limit(buyer_tids,False)
 
     # print get_transactions()
 

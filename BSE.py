@@ -875,7 +875,7 @@ class Trader_AA(Trader):
                         price = math.floor(best_bid + float(self.tau - best_bid)/self.eta)
                         # Added this in due to rounding errors that were costing us £s!
                         self.price = min(self.limit,price)
-                        self.offer_reject_count += 1
+                        # self.offer_reject_count += 1
                     else:
                         self.price = self.p_min
                         # self.offer_reject_count = 0
@@ -884,11 +884,11 @@ class Trader_AA(Trader):
                         price = math.ceil(best_ask - float(best_ask - self.tau)/self.eta)
                         # Added this in due to rounding errors that were costing us £s!
                         self.price = max(self.limit,price)
-                        self.offer_reject_count += 1
                     else:
                         self.price = self.p_max
                         # self.offer_reject_count = 0
 
+                self.offer_reject_count += 1
 
             if ((self.job == "Bid" and self.price > self.limit) or 
                 (self.job == "Ask" and self.price < self.limit) ):
@@ -1206,9 +1206,10 @@ class Trader_AA(Trader):
 # re-analyse the entire set of traders on each call
 def trade_stats(expid, traders, dumpfile, time, lob):
         #do_trade_stats(expid, traders, dumpfile, time, lob, 'A','All');
-        do_trade_stats_new(expid, traders, dumpfile, time, lob, 'A','All');
+        do_trade_stats_new(expid, traders, dumpfile, time, lob,'All');
         # do_trade_stats(expid, traders, dumpfile, time, lob, 'B','Buyers');
         # do_trade_stats(expid, traders, dumpfile, time, lob, 'S','Sellers');
+
 
         #if lob['bids']['best'] != None :
         #        dumpfile.write('%d, ' % (lob['bids']['best']))
@@ -1221,9 +1222,10 @@ def trade_stats(expid, traders, dumpfile, time, lob):
 
         dumpfile.write('\n');
 
-def do_trade_stats(expid, traders, dumpfile, time, lob, job, label):
+def do_trade_stats(expid, traders, dumpfile, time, lob,label):
     trader_types = {}
     for t in traders:
+        job = label[0]
         if job == 'A' or traders[t].tid[0] == job:
             ttype = traders[t].ttype
             if ttype in trader_types.keys():
@@ -1240,9 +1242,10 @@ def do_trade_stats(expid, traders, dumpfile, time, lob, job, label):
         s = trader_types[ttype]['balance_sum']
         dumpfile.write('%s, %d, %d, %f, ' % (ttype, s, n, s/float(n)))
 
-def do_trade_stats_new(expid, traders, dumpfile, time, lob, job, label):
+def do_trade_stats_new(expid, traders, dumpfile, time, lob, label):
     trader_types = {}
     for t in traders:
+        job = label[0];
         if job == 'A' or traders[t].tid[0] == job: 
             ttype = traders[t].ttype
             if ttype in trader_types.keys():
@@ -1253,17 +1256,24 @@ def do_trade_stats_new(expid, traders, dumpfile, time, lob, job, label):
                 n = 1
             trader_types[ttype]={'n':n, 'balance_sum':t_balance}
 
-    if expid[-1] == '1' and expid[-2] == '0':
+    if expid[-2:] == '01':
         for ttype in sorted(list(trader_types.keys())):
             dumpfile.write('%s, ' % ttype)
         dumpfile.write('\n')
 
     # dumpfile.write('%s, %s, '% (job, expid[-1]))
+
     for ttype in sorted(list(trader_types.keys())):
         n = trader_types[ttype]['n']
         s = trader_types[ttype]['balance_sum']
         dumpfile.write('%f, ' % (s/float(n)))
-  
+
+def do_trade_stats_profits(expid, traders, dumpfile, time, lob,label):
+    dumpfile.write('%s\n' % label)
+    for t in traders:
+        if label[0] == 'A' or traders[t].tid[0] == label[0]:
+            ttype = traders[t].ttype
+            dumpfile.write('%s,%s\n'% (ttype, traders[t].balance))
 
 
 # create a bunch of traders from traders_spec

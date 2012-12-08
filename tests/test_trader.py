@@ -6,8 +6,8 @@ sys.path.insert(0,parentdir)
 from BSE import Trader_AA
 
 # THETAS = range(0,2)
-THETAS = range(-2,4)
-# THETAS = range(-8,2)
+# THETAS = range(-2,4)
+THETAS = range(-8,4)
 
 def test_r_intramarginal():
     traders = []
@@ -36,10 +36,11 @@ def test_r_intramarginal():
 
     for theta in THETAS:
         targets = zeros((N,2))
+        support = linspace(-1,1,N)
 
         rs = zeros(N)
         for i in range(N):
-            r = -1 + 2 * float(i) / N
+            r = support[i]
             for j in range(2):
                 traders[j].theta = theta + 0.0001 
                 targets[i,j] = traders[j].calculate_target_price(r)
@@ -79,16 +80,15 @@ def test_r_extramarginal():
 
     for theta in THETAS:
         targets = zeros((N,2))
-
+        support = linspace(-1,1,N)
         rs = zeros(N)
         for i in range(N):
-            r = -1 + 2 * float(i) / N
+            r = support[i]
             for j in range(2):
                 traders[j].theta = theta + 0.00001
                 targets[i,j] = traders[j].calculate_target_price(r)
             rs[i] = r
        
-
         plot(rs,targets[:,0], 'r-')
         plot(rs,targets[:,1], 'b--')
     

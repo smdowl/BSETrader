@@ -294,7 +294,7 @@ class Exchange(Orderbook):
         def tape_dump(self, fname, fmode, tmode):
                 dumpfile = open(fname, fmode)
                 for tapeitem in self.tape:
-                        dumpfile.write('%s, %s\n' % (tapeitem['time'], tapeitem['price']))
+                        dumpfile.write('%s, %s, %s, %s\n' % (tapeitem['party1'],tapeitem['party2'],tapeitem['time'], tapeitem['price']))
                 dumpfile.close()
                 if tmode == 'wipe':
                         self.tape = []
@@ -756,18 +756,22 @@ class Trader_AA(Trader):
         
         # A value for the degree of aggressiveness
         self.r = 0
+        self.agg_r = 0
         self.r_shout = 0
 
         self.price = None
 
-        # A value that influences long term bidding behaviour 
-        self.theta = random.random() * 0.01
-        # self.thetamin = -1
-        # self.thetamax = 4
+        self.lambda_a = 0.01
+        self.lambda_r = 0.02
 
-        # *** Temporarily changed to stop crazy results ***
-        self.thetamax = 2
-        self.thetamin = -8
+        # A value that influences long term bidding behaviour 
+        self.theta = random.random() * 0.1
+
+        self.thetamax = 2.0
+        self.thetamin = -8.0
+
+        # How should the average be weighted
+        self.ave_weight = 0.7
 
         # Our approximation to the market equilibrium
         self.equilibrium = None
@@ -791,10 +795,12 @@ class Trader_AA(Trader):
         self.beta1 = 0.5
         self.beta2 = 0.5
 
+        self.offer_reject_count = 0
+
         # self.p_max = 1
         # self.p_min = 
 
-        self.eta = 3.0
+        self.eta = 2.0
 
         # Store target price
         self.tau = None
@@ -818,6 +824,11 @@ class Trader_AA(Trader):
         
         return trader
 
+    def bookkeep(self, trade, order, verbose,store_profits):
+        Trader.bookkeep(self,trade, order, verbose,store_profits)
+        self.offer_reject_count = 0
+
+
     def add_order(self,order):
         """ Had issues with no limit price when responding so set it here """
         Trader.add_order(self,order)
@@ -838,21 +849,25 @@ class Trader_AA(Trader):
             best_bid = lob['bids']['best']
             best_ask = lob['asks']['best']
             self.limit = self.orders[0].price
-
+            self.job = self.orders[0].otype
+            
             if not best_bid:
                 best_bid = bse_sys_minprice
 
             if not best_ask:
                 best_ask = bse_sys_maxprice
             
-            # return Order(self.tid, self.orders[0].otype, self.orders[0].price, self.orders[0].qty, time)
-
-            if len(self.transactions) < 10:
+            if len(self.transactions) < 3:
                 if self.job == 'Bid':
-                    self.price = min(self.limit,best_bid + (min(self.limit,best_ask) - best_bid)/self.eta)
+                    ask_plus = (1 + self.lambda_r) * best_ask + self.lambda_a
+                    self.price = min(self.limit,best_bid + (min(self.limit,ask_plus) - best_bid)/self.eta)
                 else:# self.job == 'Ask':
-                    self.price = max(self.limit,best_ask - (best_ask - max(self.limit,best_bid))/self.eta)
+                    bid_minus = (1 - self.lambda_r) * best_bid - self.lambda_a
+                    self.price = max(self.limit,best_ask - (best_ask - max(self.limit,bid_minus))/self.eta)
             else:
+                self.get_marginality()
+                self.tau = self.calculate_target_price(self.agg_r)
+
                 # self.get_marginality()
                 # self.tau = self.calculate_target_price(self.r)
                 if self.job == 'Bid':
@@ -860,8 +875,10 @@ class Trader_AA(Trader):
                         price = math.floor(best_bid + float(self.tau - best_bid)/self.eta)
                         # Added this in due to rounding errors that were costing us £s!
                         self.price = min(self.limit,price)
+                        # self.offer_reject_count += 1
                     else:
                         self.price = self.p_min
+                        # self.offer_reject_count = 0
                 elif self.job == 'Ask':
                     if self.limit < best_ask:
                         price = math.ceil(best_ask - float(best_ask - self.tau)/self.eta)
@@ -869,19 +886,23 @@ class Trader_AA(Trader):
                         self.price = max(self.limit,price)
                     else:
                         self.price = self.p_max
+                        # self.offer_reject_count = 0
 
+                self.offer_reject_count += 1
 
             if ((self.job == "Bid" and self.price > self.limit) or 
                 (self.job == "Ask" and self.price < self.limit) ):
                 pdb.set_trace()
             
-            order = Order(self.tid, self.orders[0].otype, self.limit, self.orders[0].qty, time)
+            order = Order(self.tid, self.orders[0].otype, math.floor(self.price), self.orders[0].qty, time)
+            # order = Order(self.tid, self.orders[0].otype, math.floor(self.limit), self.orders[0].qty, time)
         
         return order
         
 
     def respond(self, time, lob, trade, verbose):
         """ Learn from what just happened in the market"""
+    
         # If there has been any change then recalculate the equilibrium and our marginality
         if trade and self.limit:
             self.transactions.append(trade['price'])
@@ -890,8 +911,23 @@ class Trader_AA(Trader):
             # Calculate theta from alpha
             self.theta = self.calculate_theta()
 
+            if self.job == "Bid":
+                price_to_match = lob['bids']['best']
+                if not price_to_match:
+                    price_to_match = self.p_min
+            else:
+                price_to_match = lob['asks']['best']   
+                if not price_to_match:
+                    price_to_match = self.p_max
+
+            r_shout = self.calculate_r_shout(price_to_match)
+            self.r = self.calculate_r(r_shout)
+
+            # Limit the new aggressiveness to 1
+            self.agg_r = min(self.r + self.offer_reject_count * 0.1, 1)
+
             self.get_marginality()
-            self.tau = self.calculate_target_price(self.r)
+            self.tau = self.calculate_target_price(self.agg_r)
 
     def get_marginality(self):
         """Get the marginality based on the trader type and estimate of the market equilibrium"""
@@ -907,61 +943,13 @@ class Trader_AA(Trader):
             else:
                 self.marginality  = self.Marginality.Extra
 
-    def check_for_changes(self,trade,lob):
-        """
-        Add any new transactions to the list so that we can use them to approximate the equilibrium
-        Returns true if there was a change in the market and false otherwise
-        """
-        # what, if anything, has happened on the bid LOB?
-        bid_improved = False
-        bid_hit = False
-        lob_best_bid_price = lob['bids']['best']
-
-        if lob_best_bid_price and self.prev_best_bid_price:
-            # non-empty bid LOB
-            if self.prev_best_bid_price < lob_best_bid_price :
-                # best bid has improved
-                # NB doesn't check if the improvement was by self
-                bid_improved = True
-            elif trade  and (self.prev_best_bid_price > lob_best_bid_price):
-                # previous best bid was hit                              
-                bid_hit = True
-                self.transactions.append(self.prev_best_bid_price)
-        elif self.prev_best_bid_price:
-            # the bid LOB has been emptied by a hit
-            bid_hit = True
-            self.transactions.append(self.prev_best_bid_price)
-
-        self.prev_best_bid_price = lob_best_bid_price
-
-        # what, if anything, has happened on the ask LOB?
-        ask_improved = False
-        ask_lifted = False
-        lob_best_ask_p = lob['asks']['best']
-        if lob_best_ask_p != None:
-            # non-empty ask LOB
-            if self.prev_best_ask_price > lob_best_ask_p :
-                # best ask has improved -- NB doesn't check if the improvement was by self
-                ask_improved = True
-            elif trade != None and (self.prev_best_ask_price < lob_best_ask_p):
-                # trade happened and best ask price has got worse, or stayed same but quantity reduced -- assume previous best ask was lifted
-                ask_lifted = True
-        elif self.prev_best_ask_price != None:
-            # the bid LOB is empty now but was not previously, so must have been hit
-            ask_lifted = True
-            self.transactions.append(self.prev_best_ask_price)
-
-        self.prev_best_ask_price = lob_best_ask_p
-
-        return bid_hit or ask_lifted
-
     def calculate_market_equilibrium(self):
         """ Use a weighted average of all previous transactions to calculate the market equilibrium """
         estimate_sum = 0
         weights = 0
         # Now we want to calculate the estimate of the equilibrium price
         for i in range(len(self.transactions)):
-            weight = 0.9 ** i
+            weight = self.ave_weight ** i
             estimate_sum += self.transactions[-(i+1)] * weight
             weights += weight
 
@@ -996,6 +984,7 @@ class Trader_AA(Trader):
             print self.limit
             print target_price
             print price_to_match
+            return self.r
 
         while abs(target_price - price_to_match) > limit:
             target_price = self.calculate_target_price(r)
@@ -1016,10 +1005,15 @@ class Trader_AA(Trader):
 
     def calculate_r(self, r_shout):
         if r_shout < self.r:
-            delta = 0.95 * r_shout
+            delta = (1-self.lambda_r) * r_shout
         else:
-            delta = 1.05 * r_shout
-        return self.r + self.beta1 * (delta - self.r)
+            delta = (1+self.lambda_r) * r_shout
+
+        new_r = self.r + self.beta1 * (delta - self.r)
+        if new_r > 1: new_r = 1
+        if new_r < -1: new_r = -1
+
+        return new_r
 
 
     def newton(self):
@@ -1031,18 +1025,47 @@ class Trader_AA(Trader):
         maxNewtonItter = 10
         maxNewtonError = 0.0001
 
-        while i <= maxNewtonItter:
-            eX = math.exp(theta_est)
-            eXminOne = eX - 1
-            fofX = (((theta_est * self.equilibrium) / float(eXminOne)) - rightHside)
-            if abs(fofX) <= maxNewtonError:
-                break
-            dfofX = ((self.equilibrium / eXminOne) - ((eX * self.equilibrium * theta_est) / float(eXminOne * eXminOne)))
-            theta_est = (theta_est - (fofX / float(dfofX)));
-            i += 1
-        if theta_est == 0.0: theta_est += 0.000001
+        try:
+            while i <= maxNewtonItter:
+                eX = math.exp(theta_est)
+                eXminOne = eX - 1
+                fofX = (((theta_est * self.equilibrium) / float(eXminOne)) - rightHside)
+                if abs(fofX) <= maxNewtonError:
+                    break
+                dfofX = ((self.equilibrium / eXminOne) - ((eX * self.equilibrium * theta_est) / float(eXminOne * eXminOne)))
+                theta_est = (theta_est - (fofX / float(dfofX)));
+                i += 1
+            if theta_est == 0.0: theta_est += 0.000001
+        except Exception:
+            # pdb.set_trace()
+            theta_est = 0.000001
         return theta_est
 
+    def newtonsell(self):
+        # runs Newton-Raphson to find theta_est (the value of theta that makes the 1st 
+        # derivative of eqn(3) continuous)
+        theta_est = self.theta
+        rightHside = ((self.theta * (self.equilibrium - self.limit)) / float(math.exp(self.theta) - 1))
+        i = 0
+        maxNewtonItter = 10
+        maxNewtonError = 0.0001
+
+        try:
+            while i <= maxNewtonItter:
+                eX = math.exp(theta_est)
+                eXminOne = eX - 1
+                fofX = (((theta_est * self.equilibrium) / float(eXminOne)) - rightHside)
+                if abs(fofX) <= maxNewtonError:
+                    break
+                dfofX = (((self.p_max - self.equilibrium) / eXminOne) - ((eX * (self.p_max - self.equilibrium) * theta_est) / float(eXminOne * eXminOne)))
+                theta_est = (theta_est - (fofX / float(dfofX)));
+                i += 1
+            if theta_est == 0.0: theta_est += 0.000001
+        except Exception:
+            # pdb.set_trace()
+            theta_est = 0.000001
+        return theta_est
+    
     def calculate_target_price(self,r):
         """ 
 
@@ -1063,12 +1086,21 @@ class Trader_AA(Trader):
                     # orig
                     # return self.equilibrium * (1 - r * exp(self.theta * (r-1)))
                     # return self.equilibrium * (1 + r * exp(self.theta * (-r-1)))
-
-                    theta_underscore = ((self.equilibrium * exp(-self.theta)) / (self.limit - self.equilibrium)) - 1
+                    theta_underscore = ((self.equilibrium * exp(-self.theta)) / (self.limit - self.equilibrium + 0.00001)) - 1
                     # From Trader_AA.py off github
                     theta_underscore = self.newton()
+
+                    if theta_underscore > self.thetamax:
+                        theta_underscore = self.thetamax
+                    if theta_underscore < self.thetamin:
+                        theta_underscore = self.thetamin
+
                     # print theta_underscore
-                    return self.equilibrium * (1 - (math.exp(-r * theta_underscore) - 1) / float(math.exp(theta_underscore) - 1))
+                    try:
+                        return self.equilibrium * (1 - (math.exp(-r * theta_underscore) - 1) / float(math.exp(theta_underscore) - 1))
+                    except:
+                        pdb.set_trace()
+                        return self.tau
                 elif r > 0:
                     theta_underscore = ((self.equilibrium * exp(-self.theta)) / (self.limit - self.equilibrium)) - 1
                     # return (self.limit - self.equilibrium) * (1 - (-r+1) * exp(-r * theta_underscore)) + self.equilibrium
@@ -1080,7 +1112,14 @@ class Trader_AA(Trader):
                     # return self.equilibrium + (self.p_max - self.equilibrium) * (-r)*exp(-(r+1)*self.theta)
 
                     # From Trader_AA.py off github
-                    theta_underscore = log((self.p_max - self.equilibrium)/(self.equilibrium-self.limit)) - self.theta
+                    # theta_underscore = log((self.p_max - self.equilibrium)/(self.equilibrium-self.limit)) - self.theta
+                    theta_underscore = self.newtonsell()
+                    
+                    if theta_underscore > self.thetamax:
+                        theta_underscore = self.thetamax
+                    if theta_underscore < self.thetamin:
+                        theta_underscore = self.thetamin
+
                     return self.equilibrium + (self.p_max - self.equilibrium) * ((math.exp(-r * theta_underscore) - 1) / (math.exp(theta_underscore) - 1))
                 elif r > 0:
                     # theta_underscore = log((self.p_max - self.equilibrium)/(self.equilibrium-self.limit)) - self.theta
@@ -1166,11 +1205,11 @@ class Trader_AA(Trader):
 # between successive calls, but that does make it inefficient as it has to
 # re-analyse the entire set of traders on each call
 def trade_stats(expid, traders, dumpfile, time, lob):
-        #do_trade_stats(expid, traders, dumpfile, time, lob, All')
-        #do_trade_stats_new(expid, traders, dumpfile, time, lob,'All')
-        do_trade_stats_profits(expid, traders, dumpfile, time, lob,'All')
-        #do_trade_stats(expid, traders, dumpfile, time, lob,'Buyers')
-        #do_trade_stats(expid, traders, dumpfile, time, lob,'Sellers')
+        #do_trade_stats(expid, traders, dumpfile, time, lob, 'A','All');
+        do_trade_stats_new(expid, traders, dumpfile, time, lob,'All');
+        # do_trade_stats(expid, traders, dumpfile, time, lob, 'B','Buyers');
+        # do_trade_stats(expid, traders, dumpfile, time, lob, 'S','Sellers');
+
 
         #if lob['bids']['best'] != None :
         #        dumpfile.write('%d, ' % (lob['bids']['best']))
@@ -1222,7 +1261,8 @@ def do_trade_stats_new(expid, traders, dumpfile, time, lob, label):
             dumpfile.write('%s, ' % ttype)
         dumpfile.write('\n')
 
-    dumpfile.write('%s, '% expid[-2:])
+    # dumpfile.write('%s, %s, '% (job, expid[-1]))
+
     for ttype in sorted(list(trader_types.keys())):
         n = trader_types[ttype]['n']
         s = trader_types[ttype]['balance_sum']
@@ -1507,7 +1547,7 @@ def customer_orders(time, last_update, traders, trader_stats, os, pending, verbo
 
 
 # one session in the market
-def market_session(sess_id, starttime, endtime, trader_spec, order_schedule, dumpfile, dump_each_trade,store_traders,store_profits,store_lob_orders=False):
+def market_session(sess_id, starttime, endtime, trader_spec, order_schedule, dumpfile, dump_each_trade,store_traders,store_profits,store_lob_orders=False,store_trader_orders=False):
         # initialise the exchange
         exchange = Exchange()
 
@@ -1545,14 +1585,13 @@ def market_session(sess_id, starttime, endtime, trader_spec, order_schedule, dum
                 pending_orders = customer_orders(time, last_update, traders, trader_stats,
                                                  order_schedule, pending_orders, orders_verbose)
 
-
                 # get an order (or None) from a randomly chosen trader
                 tid = list(traders.keys())[random.randint(0, len(traders) - 1)]
                 order = traders[tid].getorder(time, time_left, exchange.publish_lob(time, lob_verbose))
                 
-                # if traders[tid].ttype == "AA" and order:
-                #     trader_utils.dump_trader(traders[tid],time,order)
-
+                if traders[tid].ttype == "AA" and order and store_trader_orders:
+                    trader_utils.dump_trader_order(traders[tid],time,order)
+                    
                 if order != None:
                         # send order to exchange
                         trade = exchange.process_order2(time, order, process_verbose)
@@ -1563,13 +1602,13 @@ def market_session(sess_id, starttime, endtime, trader_spec, order_schedule, dum
 
                                 # trade occurred,
                                 # so the counterparties update order lists and blotters
-                                trader_utils.store_trade(order,trade,traders[trade['party1']],traders[trade['party2']],time)
+                                # trader_utils.store_trade(order,trade,traders[trade['party1']],traders[trade['party2']],time)
                                 
-                                if traders[trade['party1']].ttype == "AA":
-                                    trader_utils.dump_trader(traders[trade['party1']],time,order)
+                                # if traders[trade['party1']].ttype == "AA":
+                                #     trader_utils.dump_trader(traders[trade['party1']],time,order)
 
-                                if traders[trade['party2']].ttype == "AA":
-                                    trader_utils.dump_trader(traders[trade['party2']],time,order)
+                                # if traders[trade['party2']].ttype == "AA":
+                                #     trader_utils.dump_trader(traders[trade['party2']],time,order)
 
                                 traders[trade['party1']].bookkeep(trade, order, bookkeep_verbose,store_profits)
                                 traders[trade['party2']].bookkeep(trade, order, bookkeep_verbose,store_profits)
@@ -1583,8 +1622,8 @@ def market_session(sess_id, starttime, endtime, trader_spec, order_schedule, dum
                                 # seqeunce (rather than random/shuffle) isn't a problem
                                 traders[t].respond(time, lob, trade, respond_verbose)
 
-                                if traders[t].ttype == "AA" and store_traders:
-                                    trader_utils.dump_trader(traders[t],time,None)
+                                # if traders[t].ttype == "AA" and store_traders:
+                                #     trader_utils.dump_trader(traders[t],time,None)
 
                 time = time + timestep
 

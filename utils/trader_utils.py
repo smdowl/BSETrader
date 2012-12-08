@@ -1,4 +1,4 @@
-import json
+import json, csv
 
 def trader_filepath():
     return 'output/trader.json'
@@ -15,6 +15,9 @@ def lob_orders_filepath():
 def simulation_filepath():
     return 'output/simulation.csv'
 
+def trader_orders_filepath():
+    return 'output/trader_orders.csv'
+
 def wipe_trader_files(evolution):
     f = open(trader_filepath(),'w')
     f.close()
@@ -26,6 +29,9 @@ def wipe_trader_files(evolution):
     f.close()
 
     f = open(lob_orders_filepath(),'w')
+    f.close()
+
+    f = open(trader_orders_filepath(),'w')
     f.close()
 
     if evolution:
@@ -49,6 +55,19 @@ def dump_trader(trader,time,order):
             obj_dict['orders'] = order_dicts
         json_string = json.dumps(obj_dict)
         f.write(json_string + "\n")
+
+def dump_trader_order(trader,time,order):
+    """ Output the traders new order against their current limit price """
+    if trader.ttype == "AA" and trader.equilibrium != None: 
+        store_data = (trader.tid,trader.ttype,trader.limit,order.price,time,trader.equilibrium,trader.r,trader.agg_r,trader.tau)
+    else:
+        store_data = (trader.tid,trader.ttype,trader.limit,order.price,time)
+    with open(trader_orders_filepath(),'a') as f:
+        sim_writer = csv.writer(f,delimiter=',')
+        sim_writer.writerow(store_data)
+        # for row in values:
+        #     sim_writer.writerow(row)
+
 
 def store_profits(trader,profit_breakdown):
     """ Output the profit of the trader at every point in time """

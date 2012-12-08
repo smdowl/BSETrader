@@ -1,7 +1,7 @@
 from BSE import market_session
 from BSE import Trader
-import math 
-import sys
+import math,sys,pdb
+
 
 from utils.trader_utils import wipe_trader_files
 from utils import simulation_utils
@@ -12,6 +12,8 @@ vary_parameters = False
 evolution = True
 knock_out = True
 store_profits = False
+store_trader_orders = False
+store_lob_orders = False
 start_time = 0
 
 # schedule_offsetfn returns time-dependent offset on schedule prices
@@ -24,7 +26,7 @@ def schedule_offsetfn(t):
         offset = gradient + amplitude * math.sin(wavelength * t)
         return int(round(offset, 0))
 
-def run_standard_simulation(end_time, traders_spec, order_sched, m):
+def run_standard_simulation(n_trials,end_time, traders_spec, order_sched):
         wipe_trader_files(evolution)
         tdump=open('output/avg_balance'+str(m)+'.csv','w')
         #tdump.write(end_time, order_sched['sup'][0]['stepmode'], order_sched['timemode'])
@@ -32,54 +34,54 @@ def run_standard_simulation(end_time, traders_spec, order_sched, m):
         trial = 1
         while (trial<(n_trials+1)):
                trial_id = 'trial%04d' % trial
-               market_session(trial_id, start_time, end_time, traders_spec, order_sched, tdump, dump_all,store_traders,store_profits)
+               market_session(trial_id, start_time, end_time, traders_spec, order_sched, tdump, dump_all,store_traders,store_profits,store_lob_orders,store_trader_orders)
                tdump.flush()
                trial = trial + 1
-               #print trial_id + " done!" 
+               print trial_id + " done!" 
         tdump.close()
 
         #sys.exit('Done Now')
 
-def run_evolution_simulation(end_time, traders_spec, order_sched, knock_out, rnd):
-        tdump=open('output/avg_balance.csv','w')
+def run_evolution_simulation(n_trials,end_time, traders_spec, order_sched, knock_out,rnd):
+    wipe_trader_files(evolution)
+    tdump=open('output/avg_balance.csv','w')
+        
+    trader_types = []
+    counts = []
+    for (trader,count) in buyers_spec:
+        trader_types.append(trader)
+        counts.append(count)
+    evolution_output = [counts]
 
-        wipe_trader_files(evolution)
+    trial = 1
+    while (trial<(n_trials+1)):
+            trial_id = 'trial%04d' % trial
+            traders = market_session(trial_id, start_time, end_time, traders_spec, order_sched, tdump, dump_all,store_traders,store_profits,store_lob_orders,store_trader_orders)
+
+
+            best_balance = -float('inf')
+            worst_balance = float('inf')
+
+            for trader in traders.values():
+                if trader.balance > best_balance:
+                    best_trader = trader.tid
+                    best_balance = trader.balance
+                elif trader.balance < worst_balance:
+                    worst_trader = trader.tid
+                    worst_balance = trader.balance
             
-        trader_types = []
-        counts = []
-        for (trader,count) in buyers_spec:
-            trader_types.append(trader)
-            counts.append(count)
-        evolution_output = [counts]
+            i = 0
+            counts = []
+            number_still_in = 0
+            for (trader,count) in buyers_spec:
+                if not knock_out and trader == traders[best_trader].ttype:
+                    count += 1
 
-        trial = 1
-        while (trial<(n_trials+1)):
-                trial_id = 'trial%04d' % trial
-                traders = market_session(trial_id, start_time, end_time, traders_spec, order_sched, tdump, dump_all,store_traders,store_profits)
-
-                best_balance = -float('inf')
-                worst_balance = float('inf')
-
-                for trader in traders.values():
-                    if trader.balance > best_balance:
-                        best_trader = trader.tid
-                        best_balance = trader.balance
-                    elif trader.balance < worst_balance:
-                        worst_trader = trader.tid
-                        worst_balance = trader.balance
+                if trader == traders[worst_trader].ttype:
+                    count -= 1
                 
-                i = 0
-                counts = []
-                number_still_in = 0
-                for (trader,count) in buyers_spec:
-                    if not knock_out and trader == traders[best_trader].ttype:
-                        count += 1
-
-                    if trader == traders[worst_trader].ttype:
-                        count -= 1
-                    
-                    if count > 0:
-                        number_still_in += 1
+                if count > 0:
+                    number_still_in += 1
 
                     buyers_spec[i] = (trader,count)
                     counts.append(count)
@@ -93,10 +95,10 @@ def run_evolution_simulation(end_time, traders_spec, order_sched, knock_out, rnd
                 traders_spec = {'sellers':sellers_spec, 'buyers':buyers_spec}
 
                 tdump.flush()
-                print str(trial) + " done!" 
-                trial = trial + 1
-        simulation_utils.store_simulation_data(trader_types,evolution_output,rnd)
-        tdump.close()
+            print str(trial) + " done!" 
+            trial = trial + 1
+            simulation_utils.store_simulation_data(trader_types,evolution_output,rnd)
+    tdump.close()
         
 
 if __name__ == "__main__":
@@ -114,13 +116,14 @@ if __name__ == "__main__":
         stepmodes = ['fixed', 'random', 'jittered']
         timemodes = ['periodic', 'drip-fixed', 'drip-jitter','drip-poisson']
 
-        default = ['long','jittered','drip-poisson']
+        default = ['medium','jittered','drip-poisson']
 
         trader_count = 5
         traders = ['GVWY','SHVR','ZIC','ZIP','AA']
 
-        n_trials = 50
+        n_trials = 1
         n_rnds = 5
+        m = 1
 
         if vary_parameters:
         # set up parameters for the session
@@ -175,13 +178,13 @@ if __name__ == "__main__":
         if evolution:
             rnd = 1
             while (rnd<(n_rnds+1)):
-                run_evolution_simulation(end_time, traders_spec, order_sched, knock_out, rnd)
+                run_evolution_simulation(n_trials,end_time, traders_spec, order_sched, knock_out, rnd)
                 rnd += 1
         else:    
-            run_standard_simulation(end_time, traders_spec, order_sched,0)
+            run_standard_simulation(n_trials,end_time, traders_spec, order_sched,0)
+
 
         sys.exit('Done Now')
-
 
 
 
@@ -222,7 +225,7 @@ if __name__ == "__main__":
         #                         if trdr_4_n >= min_n:
         #                                 buyers_spec = [('GVWY', trdr_1_n), ('SHVR', trdr_2_n),
         #                                                ('ZIC', trdr_3_n), ('ZIP', trdr_4_n)]
-        #                                 sellers_spec = buyers_spec
+        #                                 segllers_spec = buyers_spec
         #                                 traders_spec = {'sellers':sellers_spec, 'buyers':buyers_spec}
         #                                 print buyers_spec
         #                                 trial = 1

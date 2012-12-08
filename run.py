@@ -6,10 +6,9 @@ import sys
 from utils.trader_utils import wipe_trader_files
 from utils import simulation_utils
 
-tdump=open('output/avg_balance.csv','w')
-
 store_traders = False
 dump_all = False
+vary_parameters = False
 evolution = False
 store_profits = False
 start_time = 0
@@ -24,8 +23,10 @@ def schedule_offsetfn(t):
         offset = gradient + amplitude * math.sin(wavelength * t)
         return int(round(offset, 0))
 
-def run_standard_simulation(end_time, traders_spec, order_sched):
+def run_standard_simulation(end_time, traders_spec, order_sched, m):
         wipe_trader_files(evolution)
+        tdump=open('output/avg_balance'+str(m)+'.csv','w')
+        #tdump.write(end_time, order_sched['sup'][0]['stepmode'], order_sched['timemode'])
 
         trial = 1
         while (trial<(n_trials+1)):
@@ -33,12 +34,13 @@ def run_standard_simulation(end_time, traders_spec, order_sched):
                market_session(trial_id, start_time, end_time, traders_spec, order_sched, tdump, dump_all,store_traders,store_profits)
                tdump.flush()
                trial = trial + 1
-               print trial_id + " done!" 
+               #print trial_id + " done!" 
         tdump.close()
 
-        sys.exit('Done Now')
+        #sys.exit('Done Now')
 
 def run_evolution_simulation(end_time, traders_spec, order_sched, knock_out):
+    tdump=open('output/avg_balance.csv','w')
     wipe_trader_files(evolution)
         
     trader_types = []
@@ -51,7 +53,7 @@ def run_evolution_simulation(end_time, traders_spec, order_sched, knock_out):
     trial = 1
     while (trial<(n_trials+1)):
             trial_id = 'trial%04d' % trial
-            traders = market_session(trial_id, start_time, end_time, traders_spec, order_sched, tdump, dump_all,store_traders,store_profits)
+            traders = market_session(trial_id, start_time, end_time, traders_spec, order_sched, tdump, dump_all,store_traders,store_profits,1)
 
             best_balance = -float('inf')
             worst_balance = float('inf')
@@ -103,39 +105,79 @@ if __name__ == "__main__":
         # #                            {'from':2*duration/3, 'to':end_time, 'ranges':[range1], 'stepmode':'fixed'}
         # #                          ]
         
-        durationmodes = {'short':150,'medium':600,'long':1200}
+        durationmodes = {'short':150,'medium':450,'long':700}
+        
+        dmodes = ['short','medium','long']
+        stepmodes = ['fixed', 'random', 'jittered']
+        timemodes = ['periodic', 'drip-fixed', 'drip-jitter','drip-poisson']
 
-        stepmode = 'fixed' # 'fixed', 'random', 'jittered'
-        timemode = 'drip-poisson' # 'periodic', 'drip-fixed', 'drip-jitter', or 'drip-poisson'
+        default = ['long','jittered','drip-poisson']
 
-        trader_count = 8
-        traders = ['GVWY','SHVR','ZIC','ZIP','AA']
+        trader_count = 5
+        traders = ['AA','GVWY','SNPR','SHVR','ZIP']
 
-        n_trials = 50
+        n_trials = 1
+        m = 1
 
+        if vary_parameters:
         # set up parameters for the session
-        end_time = durationmodes['medium']
-        duration = end_time - start_time
+            for i in range(len(durationmodes)):
+                for j in range(len(stepmodes)):
+                    for k in range(len(timemodes)):
+                        end_time = durationmodes[dmodes[i]]
+                        stepmode = stepmodes[j]
+                        timemode = timemodes[k]
 
-        range1 = (95, 95, schedule_offsetfn)
-        supply_schedule = [ {'from':start_time, 'to':end_time, 'ranges':[range1], 'stepmode':stepmode}]
+                        print m, end_time, stepmode, timemode
 
-        range1 = (105, 105, schedule_offsetfn)
-        demand_schedule = [ {'from':start_time, 'to':end_time, 'ranges':[range1], 'stepmode':stepmode}]
+                        duration = end_time - start_time
 
-        order_sched = {'sup':supply_schedule, 'dem':demand_schedule, 'interval':30, 'timemode':timemode}
+                        range1 = (95,95)
+                        #range1 = (95, 95, schedule_offsetfn)
+                        supply_schedule = [ {'from':start_time, 'to':end_time, 'ranges':[range1], 'stepmode':stepmode}]
 
-        buyers_spec = [(trader,trader_count) for trader in traders]
-        # buyers_spec = [('GVWY',trader_count),('SHVR',trader_count),('ZIC',trader_count),('ZIP',trader_count),('AA',trader_count)]
-        sellers_spec = buyers_spec
+                        range2 = (105,105)
+                        #range2 = (105, 105, schedule_offsetfn)
+                        demand_schedule = [ {'from':start_time, 'to':end_time, 'ranges':[range2], 'stepmode':stepmode}]
 
-        traders_spec = {'sellers':sellers_spec, 'buyers':buyers_spec}
+                        order_sched = {'sup':supply_schedule, 'dem':demand_schedule, 'interval':30, 'timemode':timemode}
 
-        if evolution:
-            knock_out = True
-            run_evolution_simulation(end_time, traders_spec, order_sched, knock_out)
+                        buyers_spec = [(trader,trader_count) for trader in traders]
+                        # buyers_spec = [('GVWY',trader_count),('SHVR',trader_count),('ZIC',trader_count),('ZIP',trader_count),('AA',trader_count)]
+                        sellers_spec = buyers_spec
+
+                        traders_spec = {'sellers':sellers_spec, 'buyers':buyers_spec}
+
+                        run_standard_simulation(end_time, traders_spec, order_sched, m)
+                        m += 1
+
         else:
-            run_standard_simulation(end_time, traders_spec, order_sched)
+            end_time = durationmodes[default[0]]
+            stepmode = default[1]
+            timemode = default[2]
+
+            duration = end_time - start_time
+
+            range1 = (95, 95, schedule_offsetfn)
+            supply_schedule = [ {'from':start_time, 'to':end_time, 'ranges':[range1], 'stepmode':stepmode}]
+
+            range2 = (105, 105, schedule_offsetfn)
+            demand_schedule = [ {'from':start_time, 'to':end_time, 'ranges':[range2], 'stepmode':stepmode}]
+
+            order_sched = {'sup':supply_schedule, 'dem':demand_schedule, 'interval':30, 'timemode':timemode}
+
+            buyers_spec = [(trader,trader_count) for trader in traders]
+            sellers_spec = buyers_spec
+
+            traders_spec = {'sellers':sellers_spec, 'buyers':buyers_spec}
+
+            if evolution:
+                knock_out = True
+                run_evolution_simulation(end_time, traders_spec, order_sched, knock_out)
+            else:
+                run_standard_simulation(end_time, traders_spec, order_sched,0)
+
+        sys.exit('Done Now')
 
 
 

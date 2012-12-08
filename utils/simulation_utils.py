@@ -13,8 +13,8 @@ def create_test_csv():
         for row in values:
             sim_writer.writerow(row)
 
-def store_simulation_data(trader_list,values):
-    with open ('output/simulation.csv','w') as output_file:
+def store_simulation_data(trader_list,values,rnd):
+    with open ('output/simulation'+str(rnd)+'.csv','w') as output_file:
         sim_writer = csv.writer(output_file,delimiter=',')
         sim_writer.writerow(trader_list)
         for row in values:

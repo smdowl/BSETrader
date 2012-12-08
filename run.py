@@ -55,48 +55,48 @@ def run_evolution_simulation(n_trials,end_time, traders_spec, order_sched, knock
 
     trial = 1
     while (trial<(n_trials+1)):
-            trial_id = 'trial%04d' % trial
-            traders = market_session(trial_id, start_time, end_time, traders_spec, order_sched, tdump, dump_all,store_traders,store_profits,store_lob_orders,store_trader_orders)
+        trial_id = 'trial%04d' % trial
+        traders = market_session(trial_id, start_time, end_time, traders_spec, order_sched, tdump, dump_all,store_traders,store_profits,store_lob_orders,store_trader_orders)
 
-            best_balance = -float('inf')
-            worst_balance = float('inf')
+        best_balance = -float('inf')
+        worst_balance = float('inf')
 
-            for trader in traders.values():
-                if trader.balance > best_balance:
-                    best_trader = trader.tid
-                    best_balance = trader.balance
-                elif trader.balance < worst_balance:
-                    worst_trader = trader.tid
-                    worst_balance = trader.balance
+        for trader in traders.values():
+            if trader.balance > best_balance:
+                best_trader = trader.tid
+                best_balance = trader.balance
+            elif trader.balance < worst_balance:
+                worst_trader = trader.tid
+                worst_balance = trader.balance
+        
+        i = 0
+        counts = []
+        number_still_in = 0
+        for (trader,count) in buyers_spec:
+            if not knock_out and trader == traders[best_trader].ttype:
+                count += 1
+
+            if trader == traders[worst_trader].ttype:
+                count -= 1
             
-            i = 0
-            counts = []
-            number_still_in = 0
-            for (trader,count) in buyers_spec:
-                if not knock_out and trader == traders[best_trader].ttype:
-                    count += 1
+            if count > 0:
+                number_still_in += 1
 
-                if trader == traders[worst_trader].ttype:
-                    count -= 1
-                
-                if count > 0:
-                    number_still_in += 1
+            buyers_spec[i] = (trader,count)
+            counts.append(count)
+            i += 1
+        evolution_output.append(counts)
+            
+        if number_still_in == 1:
+            break
 
-                    buyers_spec[i] = (trader,count)
-                    counts.append(count)
-                    i += 1
-                evolution_output.append(counts)
-                
-            if number_still_in == 1:
-                break
-                
-            sellers_spec = buyers_spec
-            traders_spec = {'sellers':sellers_spec, 'buyers':buyers_spec}
+        sellers_spec = buyers_spec
+        traders_spec = {'sellers':sellers_spec, 'buyers':buyers_spec}
 
-                # tdump.flush()
-            print str(trial) + " done!" 
-            trial = trial + 1
-            simulation_utils.store_simulation_data(trader_types,evolution_output,rnd)
+            # tdump.flush()
+        print str(trial) + " done!" 
+        trial = trial + 1
+    simulation_utils.store_simulation_data(trader_types,evolution_output,rnd)
     tdump.close()
         
 
@@ -121,7 +121,7 @@ if __name__ == "__main__":
         traders = ['GVWY','SHVR','ZIC','ZIP','AA']
 
         n_trials = 5
-        n_rnds = 5
+        n_rnds = 2
         m = 1
 
         if vary_parameters:

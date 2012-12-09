@@ -228,6 +228,7 @@ def plot_order_vs_limit(tids,all):
         traders = {}
         # Keep track of every value so that we can plot more acurately
         points = []
+        augmented = False
 
         for row in reader:
             tid = row[0]
@@ -242,25 +243,30 @@ def plot_order_vs_limit(tids,all):
             points.append(float(limit_price))
 
             if len(row) > 5:
-                equilibrium = row[5]
+                equilibrium = float(row[5])
                 points.append(float(equilibrium))
             else:
                 equilibrium = None
 
             if len(row) > 6:
-                r = row[6]
+                r = float(row[6])
             else:
                 r = None
 
             if len(row) > 7:
-                agg_r = row[7]
+                try:
+                    tau = float(row[7])
+                except Exception:
+                    pdb.set_trace()
+            else:
+                tau = None
+
+            if len(row) > 8:
+                agg_r = float(row[8])
+                augmented = True
             else:
                 agg_r = None
 
-            if len(row) > 8:
-                tau = row[8]
-            else:
-                tau = None
 
             if tid in tids:
                 if not tid in traders:
@@ -291,6 +297,10 @@ def plot_order_vs_limit(tids,all):
     maximum = max(all_ts[:,1]) + 50
     minimum = min(all_ts[:,1]) - 50
 
+
+    if augmented: number_of_plots = 3
+    else: number_of_plots = 2
+
     square = int(ceil(sqrt(len(tids))))
     plot_index = 0
     for tid in traders:
@@ -299,16 +309,18 @@ def plot_order_vs_limit(tids,all):
         if all:
             subplot(square, square, plot_index)
         else:
-            subplot(3, 1, 0)
+            subplot(number_of_plots, 1, 0)
 
         ylim((minimum, maximum))
         plot(trader['times'],trader['limits'],'b-')
         
         plot(trader['times'],trader['orders'],'r-')
         plot(trader['times'],trader['equilibriums'],'k-')
-
-        if 'taus' in trader:
-            plot(trader['times'],trader['taus'],'m-')            
+        try:
+            if 'taus' in trader:
+                plot(trader['times'],trader['taus'],'m-')            
+        except Exception:
+            pdb.set_trace()
 
         plot(all_ts[:,0],all_ts[:,1],'yx')
 
@@ -319,10 +331,11 @@ def plot_order_vs_limit(tids,all):
                 plot(transactions[tid][:,0],transactions[tid][:,1], 'g*')
         
         if not all:
-            subplot(3, 1, 1)       
+            subplot(number_of_plots, 1, 1)       
             plot(trader['times'],trader['rs'],'b-')
-            subplot(3, 1, 2)       
-            plot(trader['times'],trader['agg_rs'],'b--')
+            if augmented:
+                subplot(number_of_plots, 1, 2)       
+                plot(trader['times'],trader['agg_rs'],'b--')
             show()
         
         plot_index += 1

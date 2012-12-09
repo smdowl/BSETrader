@@ -741,12 +741,6 @@ class Trader_AA(Trader):
         Extra = 2
         Neutral = 3
 
-    def greater_than(a,b):
-        return a > b
-
-    def less_than(a,b):
-        return a < b
-
     def __init__(self, ttype, tid, balance):
         """Call Trader's init method then add extra iVars"""
         Trader.__init__(self,ttype, tid, balance)
@@ -756,7 +750,6 @@ class Trader_AA(Trader):
         
         # A value for the degree of aggressiveness
         self.r = 0
-        self.agg_r = 0
         self.r_shout = 0
 
         self.price = None
@@ -771,7 +764,7 @@ class Trader_AA(Trader):
         self.thetamin = -8.0
 
         # How should the average be weighted
-        self.ave_weight = 0.7
+        self.ave_weight = 0.9
 
         # Our approximation to the market equilibrium
         self.equilibrium = None
@@ -795,12 +788,9 @@ class Trader_AA(Trader):
         self.beta1 = 0.5
         self.beta2 = 0.5
 
-        self.offer_reject_count = 0
+        self.spin_up_time = 3
 
-        # self.p_max = 1
-        # self.p_min = 
-
-        self.eta = 2.0
+        self.eta = 3.0
 
         # Store target price
         self.tau = None
@@ -823,11 +813,6 @@ class Trader_AA(Trader):
             setattr(trader, key, data[key])
         
         return trader
-
-    def bookkeep(self, trade, order, verbose,store_profits):
-        Trader.bookkeep(self,trade, order, verbose,store_profits)
-        self.offer_reject_count = 0
-
 
     def add_order(self,order):
         """ Had issues with no limit price when responding so set it here """
@@ -852,12 +837,12 @@ class Trader_AA(Trader):
             self.job = self.orders[0].otype
             
             if not best_bid:
-                best_bid = bse_sys_minprice
+                best_bid = self.p_min
 
             if not best_ask:
-                best_ask = bse_sys_maxprice
+                best_ask = self.p_max
             
-            if len(self.transactions) < 3:
+            if len(self.transactions) < self.spin_up_time:
                 if self.job == 'Bid':
                     ask_plus = (1 + self.lambda_r) * best_ask + self.lambda_a
                     self.price = min(self.limit,best_bid + (min(self.limit,ask_plus) - best_bid)/self.eta)
@@ -865,40 +850,44 @@ class Trader_AA(Trader):
                     bid_minus = (1 - self.lambda_r) * best_bid - self.lambda_a
                     self.price = max(self.limit,best_ask - (best_ask - max(self.limit,bid_minus))/self.eta)
             else:
-                self.get_marginality()
-                self.tau = self.calculate_target_price(self.agg_r)
+                if self.job == "Bid":
+                    price_to_match = lob['bids']['best']
+                    if not price_to_match:
+                        price_to_match = self.p_min
+                else:
+                    price_to_match = lob['asks']['best']   
+                    if not price_to_match:
+                        price_to_match = self.p_max
 
-                # self.get_marginality()
-                # self.tau = self.calculate_target_price(self.r)
+                self.update_bid_variables(price_to_match)
+
                 if self.job == 'Bid':
                     if self.limit > best_bid:
                         price = math.floor(best_bid + float(self.tau - best_bid)/self.eta)
-                        # Added this in due to rounding errors that were costing us £s!
                         self.price = min(self.limit,price)
-                        # self.offer_reject_count += 1
                     else:
                         self.price = self.p_min
-                        # self.offer_reject_count = 0
                 elif self.job == 'Ask':
                     if self.limit < best_ask:
                         price = math.ceil(best_ask - float(best_ask - self.tau)/self.eta)
-                        # Added this in due to rounding errors that were costing us £s!
                         self.price = max(self.limit,price)
                     else:
                         self.price = self.p_max
-                        # self.offer_reject_count = 0
-
-                self.offer_reject_count += 1
 
             if ((self.job == "Bid" and self.price > self.limit) or 
                 (self.job == "Ask" and self.price < self.limit) ):
                 pdb.set_trace()
             
             order = Order(self.tid, self.orders[0].otype, math.floor(self.price), self.orders[0].qty, time)
-            # order = Order(self.tid, self.orders[0].otype, math.floor(self.limit), self.orders[0].qty, time)
         
         return order
-        
+    
+    def update_bid_variables(self, price_to_match):
+        r_shout = self.calculate_r_shout(price_to_match)
+        self.r = self.calculate_r(r_shout)
+
+        self.get_marginality()
+        self.tau = self.calculate_target_price(self.r)
 
     def respond(self, time, lob, trade, verbose):
         """ Learn from what just happened in the market"""
@@ -908,26 +897,9 @@ class Trader_AA(Trader):
             self.transactions.append(trade['price'])
             # Update our estimate the new market equilibrium
             self.calculate_market_equilibrium()
+
             # Calculate theta from alpha
             self.theta = self.calculate_theta()
-
-            if self.job == "Bid":
-                price_to_match = lob['bids']['best']
-                if not price_to_match:
-                    price_to_match = self.p_min
-            else:
-                price_to_match = lob['asks']['best']   
-                if not price_to_match:
-                    price_to_match = self.p_max
-
-            r_shout = self.calculate_r_shout(price_to_match)
-            self.r = self.calculate_r(r_shout)
-
-            # Limit the new aggressiveness to 1
-            self.agg_r = min(self.r + self.offer_reject_count * 0.1, 1)
-
-            self.get_marginality()
-            self.tau = self.calculate_target_price(self.agg_r)
 
     def get_marginality(self):
         """Get the marginality based on the trader type and estimate of the market equilibrium"""
@@ -947,6 +919,7 @@ class Trader_AA(Trader):
         """ Use a weighted average of all previous transactions to calculate the market equilibrium """
         estimate_sum = 0
         weights = 0
+
         # Now we want to calculate the estimate of the equilibrium price
         for i in range(len(self.transactions)):
             weight = self.ave_weight ** i
@@ -980,10 +953,11 @@ class Trader_AA(Trader):
         try:
             abs(target_price - price_to_match)
         except TypeError:
-            self.test_instance()
+
             print self.limit
             print target_price
             print price_to_match
+            pdb.set_trace()
             return self.r
 
         while abs(target_price - price_to_match) > limit:
@@ -1025,20 +999,23 @@ class Trader_AA(Trader):
         maxNewtonItter = 10
         maxNewtonError = 0.0001
 
-        try:
-            while i <= maxNewtonItter:
-                eX = math.exp(theta_est)
-                eXminOne = eX - 1
-                fofX = (((theta_est * self.equilibrium) / float(eXminOne)) - rightHside)
-                if abs(fofX) <= maxNewtonError:
-                    break
-                dfofX = ((self.equilibrium / eXminOne) - ((eX * self.equilibrium * theta_est) / float(eXminOne * eXminOne)))
-                theta_est = (theta_est - (fofX / float(dfofX)));
-                i += 1
-            if theta_est == 0.0: theta_est += 0.000001
-        except Exception:
-            # pdb.set_trace()
-            theta_est = 0.000001
+        while i <= maxNewtonItter:
+            eX = math.exp(theta_est)
+            eXminOne = eX - 1
+            fofX = (((theta_est * self.equilibrium) / float(eXminOne)) - rightHside)
+            if abs(fofX) <= maxNewtonError:
+                break
+            dfofX = ((self.equilibrium / eXminOne) - ((eX * self.equilibrium * theta_est) / float(eXminOne * eXminOne)))
+            theta_est = (theta_est - (fofX / float(dfofX)));
+
+            # Sometimes theta blows up or disapears, just take the limit
+            if theta_est > self.thetamax:
+                return self.thetamax
+            elif theta_est < self.thetamin:
+                return self.thetamin
+
+            i += 1
+        if theta_est == 0.0: theta_est += 0.000001
         return theta_est
 
     def newtonsell(self):
@@ -1049,21 +1026,23 @@ class Trader_AA(Trader):
         i = 0
         maxNewtonItter = 10
         maxNewtonError = 0.0001
-
-        try:
-            while i <= maxNewtonItter:
-                eX = math.exp(theta_est)
-                eXminOne = eX - 1
-                fofX = (((theta_est * self.equilibrium) / float(eXminOne)) - rightHside)
-                if abs(fofX) <= maxNewtonError:
-                    break
-                dfofX = (((self.p_max - self.equilibrium) / eXminOne) - ((eX * (self.p_max - self.equilibrium) * theta_est) / float(eXminOne * eXminOne)))
-                theta_est = (theta_est - (fofX / float(dfofX)));
-                i += 1
-            if theta_est == 0.0: theta_est += 0.000001
-        except Exception:
-            # pdb.set_trace()
-            theta_est = 0.000001
+        
+        while i <= maxNewtonItter:
+            eX = math.exp(theta_est)
+            eXminOne = eX - 1
+            fofX = (((theta_est * self.equilibrium) / float(eXminOne)) - rightHside)
+            if abs(fofX) <= maxNewtonError:
+                break
+            dfofX = (((self.p_max - self.equilibrium) / eXminOne) - ((eX * (self.p_max - self.equilibrium) * theta_est) / float(eXminOne * eXminOne)))
+            theta_est = (theta_est - (fofX / float(dfofX)));
+            # Sometimes theta blows up or disapears, just take the limit
+            if theta_est > self.thetamax:
+                return self.thetamax
+            elif theta_est < self.thetamin:
+                return self.thetamin
+            i += 1
+        if theta_est == 0.0: theta_est += 0.000001
+        
         return theta_est
     
     def calculate_target_price(self,r):
@@ -1083,64 +1062,29 @@ class Trader_AA(Trader):
         if self.marginality == self.Marginality.Intra:
             if self.job == 'Bid':
                 if r <= 0:
-                    # orig
-                    # return self.equilibrium * (1 - r * exp(self.theta * (r-1)))
-                    # return self.equilibrium * (1 + r * exp(self.theta * (-r-1)))
-                    theta_underscore = ((self.equilibrium * exp(-self.theta)) / (self.limit - self.equilibrium + 0.00001)) - 1
                     # From Trader_AA.py off github
                     theta_underscore = self.newton()
-
-                    if theta_underscore > self.thetamax:
-                        theta_underscore = self.thetamax
-                    if theta_underscore < self.thetamin:
-                        theta_underscore = self.thetamin
-
-                    # print theta_underscore
-                    try:
-                        return self.equilibrium * (1 - (math.exp(-r * theta_underscore) - 1) / float(math.exp(theta_underscore) - 1))
-                    except:
-                        pdb.set_trace()
-                        return self.tau
+                    return self.equilibrium * (1 - (math.exp(-r * theta_underscore) - 1) / float(math.exp(theta_underscore) - 1))
                 elif r > 0:
-                    theta_underscore = ((self.equilibrium * exp(-self.theta)) / (self.limit - self.equilibrium)) - 1
-                    # return (self.limit - self.equilibrium) * (1 - (-r+1) * exp(-r * theta_underscore)) + self.equilibrium
-
                     # From Trader_AA.py off github
                     return (self.equilibrium + (self.limit - self.equilibrium) * ((math.exp(r * self.theta) - 1) / float(math.exp(self.theta) - 1)))
             else: # self.job == 'Ask':
                 if r <= 0:
-                    # return self.equilibrium + (self.p_max - self.equilibrium) * (-r)*exp(-(r+1)*self.theta)
-
-                    # From Trader_AA.py off github
-                    # theta_underscore = log((self.p_max - self.equilibrium)/(self.equilibrium-self.limit)) - self.theta
                     theta_underscore = self.newtonsell()
-                    
-                    if theta_underscore > self.thetamax:
-                        theta_underscore = self.thetamax
-                    if theta_underscore < self.thetamin:
-                        theta_underscore = self.thetamin
-
                     return self.equilibrium + (self.p_max - self.equilibrium) * ((math.exp(-r * theta_underscore) - 1) / (math.exp(theta_underscore) - 1))
                 elif r > 0:
-                    # theta_underscore = log((self.p_max - self.equilibrium)/(self.equilibrium-self.limit)) - self.theta
-                    # return self.equilibrium + (self.equilibrium - self.limit) * (-r) * exp((-r+1)*theta_underscore)
-
                     # From Trader_AA.py off github
                     return self.limit + (self.equilibrium - self.limit) * (1 - (math.exp(r * self.theta) - 1) / float(math.exp(self.theta) - 1))
 
         else: # self.marginality == Marginality.Extra
             if self.job == 'Bid':
                 if r < 0:
-                    # return self.limit * (1 + r * exp(-self.theta * (r+1)))
-
                     # From Trader_AA.py off github                    
                     return self.limit * (1 - (math.exp(-r * self.theta) - 1) / float(math.exp(self.theta) - 1))
                 elif r >= 0:
                     return self.limit
             else: # self.job == 'Ask':
                 if r < 0:
-                    # return self.limit + (self.p_max - self.limit) * (-r) * exp(-self.theta * (r+1))
-
                     # From Trader_AA.py off github                    
                     return self.limit + (self.p_max - self.limit) * ((math.exp(-r * self.theta) - 1) / float(math.exp(self.theta) - 1))
                 elif r >= 0:
@@ -1188,6 +1132,51 @@ class Trader_AA(Trader):
 
         show()
 
+
+class Trader_AAA(Trader_AA):
+    def __init__(self, ttype, tid, balance):
+        Trader_AA.__init__(self,ttype,tid,balance)
+
+        # Add in the extra aggresstion component
+        self.agg_r = 0
+
+        # Start the count for the augmented count at 0
+        self.offer_reject_count = 0
+
+        # Reduce the weighted average
+        self.ave_weight = 0.7
+
+        # Speed up how quickly the trader moves towards the target price
+        self.eta = 2.0
+
+        # The amount the aggressiveness is increased after each non-transaction
+        self.augmented_amount = 0.1
+
+    def bookkeep(self, trade, order, verbose,store_profits):
+        """ Reset the offer reject count after every successful trader """
+        Trader.bookkeep(self,trade, order, verbose,store_profits)
+        self.offer_reject_count = 0
+
+    def update_bid_variables(self, price_to_match):
+        r_shout = self.calculate_r_shout(price_to_match)
+        self.r = self.calculate_r(r_shout)
+
+        self.get_marginality()
+
+        self.agg_r = min(self.r + self.offer_reject_count * self.augmented_amount, 1)
+        self.tau = self.calculate_target_price(self.agg_r)
+
+    def calculate_target_price(self,r):
+        # Limit the new aggressiveness to 1
+        self.agg_r = min(self.r + self.offer_reject_count * self.augmented_amount, 1)
+        return Trader_AA.calculate_target_price(self,self.agg_r)
+
+    def getorder(self,time,countdown,lob):
+        """Use the variables we have learnt to create an order"""
+        order = Trader_AA.getorder(self,time,countdown,lob)
+        if order:
+            self.offer_reject_count += 1
+        return order
 
 ##########################---trader-types have all been defined now--################
 
@@ -1294,6 +1283,8 @@ def populate_market(traders_spec, traders, shuffle, verbose):
                         return Trader_ZIP('ZIP', name, 0.00)
                 elif robottype == 'AA':
                         return Trader_AA('AA', name, 0.00)
+                elif robottype == 'AAA':
+                        return Trader_AAA('AAA', name, 0.00)
                 elif robottype == 'SHVP':
                         return Trader_Shaver_Plus('SHVP', name, 0.00)
                 else:

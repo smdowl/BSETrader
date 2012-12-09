@@ -9,10 +9,10 @@ from utils import simulation_utils
 store_traders = False
 dump_all = False
 vary_parameters = False
-evolution = True
+evolution = False
 knock_out = True
 store_profits = False
-store_trader_orders = False
+store_trader_orders = True
 store_lob_orders = False
 start_time = 0
 
@@ -26,7 +26,7 @@ def schedule_offsetfn(t):
         offset = gradient + amplitude * math.sin(wavelength * t)
         return int(round(offset, 0))
 
-def run_standard_simulation(n_trials,end_time, traders_spec, order_sched):
+def run_standard_simulation(n_trials,end_time, traders_spec, order_sched,m):
         wipe_trader_files(evolution)
         tdump=open('output/avg_balance'+str(m)+'.csv','w')
         #tdump.write(end_time, order_sched['sup'][0]['stepmode'], order_sched['timemode'])
@@ -115,12 +115,12 @@ if __name__ == "__main__":
         stepmodes = ['fixed', 'random', 'jittered']
         timemodes = ['periodic', 'drip-fixed', 'drip-jitter','drip-poisson']
 
-        default = ['medium','jittered','drip-poisson']
+        default = ['medium','jittered','drip-fixed']
 
-        trader_count = 5
-        traders = ['GVWY','SHVR','ZIC','ZIP','AA']
+        trader_count = 9
+        traders = ['GVWY','SHVR','ZIC','ZIP','AA','AAA']
 
-        n_trials = 5
+        n_trials = 1
         n_rnds = 2
         m = 1
 
@@ -184,7 +184,7 @@ if __name__ == "__main__":
                 run_evolution_simulation(n_trials,end_time, traders_spec, order_sched, knock_out, rnd)
                 rnd += 1
         else:    
-            run_standard_simulation(n_trials,end_time, traders_spec, order_sched,0)
+            run_standard_simulation(n_trials, end_time, traders_spec, order_sched,0)
 
 
         sys.exit('Done Now')

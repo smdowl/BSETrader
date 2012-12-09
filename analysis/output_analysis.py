@@ -298,6 +298,8 @@ def plot_order_vs_limit(tids,all,job):
     maximum = max(all_ts[:,1]) + 50
     minimum = min(all_ts[:,1]) - 50
 
+    xlimit = (all_ts[0,0],all_ts[-1,0]*1.2)
+
     if augmented: number_of_plots = 3
     else: number_of_plots = 2
 
@@ -312,46 +314,52 @@ def plot_order_vs_limit(tids,all,job):
             subplot(number_of_plots, 1, 0)
 
         ylim((minimum, maximum))
-        plot(trader['times'],trader['limits'],'b-')
+        if not all: xlim(xlimit)
+        plot(trader['times'],trader['limits'],'b.')
         
-        plot(trader['times'],trader['orders'],'r-')
+        plot(trader['times'],trader['orders'],'r.')
         plot(trader['times'],trader['equilibriums'],'k-')
-        try:
-            if 'taus' in trader:
-                plot(trader['times'],trader['taus'],'m-')            
-        except Exception:
-            pdb.set_trace()
+        # try:
+        #     if 'taus' in trader:
+        #         plot(trader['times'],trader['taus'],'r--')            
+        # except Exception:
+        #     pdb.set_trace()
 
-        plot(all_ts[:,0],all_ts[:,1],'cx')
+        plot(all_ts[:,0],all_ts[:,1],'cx',markersize=4)
         xlabel("time")
         ylabel("Price")
         if tid in transactions:
             if count_nonzero(transactions[tid]) == 2:
-                plot(transactions[tid][0],transactions[tid][1], 'g*')
+                plot(transactions[tid][0],transactions[tid][1], 'y*', markersize=10)
             else:
-                plot(transactions[tid][:,0],transactions[tid][:,1], 'g*')
-        # legend(['Limit price', 'Order price', 'Equilibrium', 'Target Price', 'Market ts', 'Trader ts'])
+                plot(transactions[tid][:,0],transactions[tid][:,1], 'y*', markersize=10)
+
+        
         if not all:
-            subplot(number_of_plots, 1, 1)       
-            if job == 'A':
-                title('Seller Trader AA aggressiveness vs transactions')
+            legend(['Limit price', 'Order price', 'Equilibrium', 'Target Price', 'Market ts', 'Trader ts'])
+
+            subplot(number_of_plots, 1, 1)    
+            xlim(xlimit)   
+            if job == 'S':
+                title('Seller Trader AAA aggressiveness vs transactions')
             else:
-                title('Buyer Trader AA aggressiveness vs transactions')
+                title('Buyer Trader AAA aggressiveness vs transactions')
             plot(trader['times'],trader['rs'],'b-')
 
             ylabel("Aggressiveness, r")
             if augmented:
                 subplot(number_of_plots, 1, 2)       
+                ylabel("Augmented Agg, r")
                 plot(trader['times'],trader['agg_rs'],'b--')
             show()
 
         plot_index += 1
 
     if all:
-        if job == 'A':
-            suptitle('Seller Trader AA transactions overview')
+        if job == 'S':
+            suptitle('Seller Trader AAA transactions overview')
         else:
-            suptitle('Buyer Trader AA transactions overview')
+            suptitle('Buyer Trader AAA transactions overview')
 
     # while plot_index < square**2:
     #     print plot_index

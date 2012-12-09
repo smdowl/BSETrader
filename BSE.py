@@ -1592,7 +1592,7 @@ def market_session(sess_id, starttime, endtime, trader_spec, order_schedule, dum
                 tid = list(traders.keys())[random.randint(0, len(traders) - 1)]
                 order = traders[tid].getorder(time, time_left, exchange.publish_lob(time, lob_verbose))
                 
-                if traders[tid].ttype == "AA" and order and store_trader_orders:
+                if traders[tid].ttype == "AAA" and order and store_trader_orders:
                     trader_utils.dump_trader_order(traders[tid],time,order)
                     
                 if order != None:
@@ -1613,11 +1613,11 @@ def market_session(sess_id, starttime, endtime, trader_spec, order_schedule, dum
                                 # if traders[trade['party2']].ttype == "AA":
                                 #     trader_utils.dump_trader(traders[trade['party2']],time,order)
 
-                                if traders[trade['party1']].ttype == "AA" and order and store_trader_orders:
-                                    trader_utils.dump_trader_order(traders[trade['party1']],time,order)
+                                # if traders[trade['party1']].ttype == "AA" and order and store_trader_orders:
+                                #     trader_utils.dump_trader_order(traders[trade['party1']],time,order)
 
-                                if traders[trade['party2']].ttype == "AA" and order and store_trader_orders:
-                                    trader_utils.dump_trader_order(traders[trade['party2']],time,order)
+                                # if traders[trade['party2']].ttype == "AA" and order and store_trader_orders:
+                                #     trader_utils.dump_trader_order(traders[trade['party2']],time,order)
 
                                 traders[trade['party1']].bookkeep(trade, order, bookkeep_verbose,store_profits)
                                 traders[trade['party2']].bookkeep(trade, order, bookkeep_verbose,store_profits)

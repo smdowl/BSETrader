@@ -10,12 +10,22 @@ store_traders = False
 dump_all = False
 vary_parameters = False
 tests = False
-evolution = False
+evolution = True
 knock_out = True
 store_profits = False
 store_trader_orders = True
 store_lob_orders = False
 start_time = 0
+
+# For simulation
+n_rnds = 2
+
+durationmodes = {'short':150,'medium':450,'long':700}
+        
+dmodes = ['short','medium','long']
+stepmodes = ['fixed', 'random', 'jittered']
+timemodes = ['periodic', 'drip-fixed', 'drip-jitter','drip-poisson']
+default = [['GVWY','SHVR','ZIC','ZIP','AA','AAA'],9,5,durationmodes['medium'],'jittered','drip-fixed']
 
 # schedule_offsetfn returns time-dependent offset on schedule prices
 def schedule_offsetfn(t):
@@ -49,7 +59,7 @@ def run_evolution_simulation(n_trials,end_time, traders_spec, order_sched, knock
         
     trader_types = []
     counts = []
-    for (trader,count) in buyers_spec:
+    for (trader,count) in traders_spec['buyers']:
         trader_types.append(trader)
         counts.append(count)
     evolution_output = [counts]
@@ -73,7 +83,7 @@ def run_evolution_simulation(n_trials,end_time, traders_spec, order_sched, knock
         i = 0
         counts = []
         number_still_in = 0
-        for (trader,count) in buyers_spec:
+        for (trader,count) in traders_spec['buyers']:
             if not knock_out and trader == traders[best_trader].ttype:
                 count += 1
 
@@ -83,7 +93,7 @@ def run_evolution_simulation(n_trials,end_time, traders_spec, order_sched, knock
             if count > 0:
                 number_still_in += 1
 
-            buyers_spec[i] = (trader,count)
+            traders_spec['buyers'][i] = (trader,count)
             counts.append(count)
             i += 1
         evolution_output.append(counts)
@@ -91,8 +101,8 @@ def run_evolution_simulation(n_trials,end_time, traders_spec, order_sched, knock
         if number_still_in == 1:
             break
 
-        sellers_spec = buyers_spec
-        traders_spec = {'sellers':sellers_spec, 'buyers':buyers_spec}
+        traders_spec['sellers'] = traders_spec['buyers']
+        # traders_spec = {'sellers':sellers_spec, 'buyers':buyers_spec}
 
             # tdump.flush()
         print str(trial) + " done!" 
@@ -100,9 +110,17 @@ def run_evolution_simulation(n_trials,end_time, traders_spec, order_sched, knock
     simulation_utils.store_simulation_data(trader_types,evolution_output,rnd)
     tdump.close()
 
-def gettest1():
+def runtest1():
     traders = ['GVWY','SHVR','ZIP','AA']
-    return (traders, 30, 25, 150, 'fixed', 'periodic')
+    trader_count = 30
+    n_trials = 25
+    end_time = 150
+    stepmode = 'fixed'
+    timemode = 'periodic'
+
+    settings = (traders, trader_count, n_trials, end_time, stepmode, timemode)
+
+    run_with_settings(settings,1)
 
 def gettest2():
     traders = ['GVWY','SHVR','ZIP','AA']
@@ -120,99 +138,69 @@ def gettest5():
     traders = ['GVWY','SHVR','ZIP','AA']
     return (traders, 30, 25, 700, 'fixed', 'drip-poisson')        
 
-if __name__ == "__main__":
-        # #        range1 = (10, 190, schedule_offsetfn)
-        # #        range2 = (200,300, schedule_offsetfn)
+def run_with_settings(settings,m):
+    (traders, trader_count, n_trials, end_time, stepmode, timemode) = settings
 
-        # #        supply_schedule = [ {'from':start_time, 'to':duration/3, 'ranges':[range1], 'stepmode':'fixed'},
-        # #                            {'from':duration/3, 'to':2*duration/3, 'ranges':[range2], 'stepmode':'fixed'},
-        # #                            {'from':2*duration/3, 'to':end_time, 'ranges':[range1], 'stepmode':'fixed'}
-        # #                          ]
-        
-        durationmodes = {'short':150,'medium':450,'long':700}
-        
-        dmodes = ['short','medium','long']
-        stepmodes = ['fixed', 'random', 'jittered']
-        timemodes = ['periodic', 'drip-fixed', 'drip-jitter','drip-poisson']
+    # print m, end_time, stepmode, timemode
 
-        default = ['medium','jittered','drip-fixed']
+    duration = end_time - start_time
 
-        trader_count = 9
-        traders = ['GVWY','SHVR','ZIC','ZIP','AA','AAA']
+    range1 = (95, 95, schedule_offsetfn)
+    supply_schedule = [ {'from':start_time, 'to':end_time, 'ranges':[range1], 'stepmode':stepmode}]
+    
+    range2 = (105, 105, schedule_offsetfn)
+    demand_schedule = [ {'from':start_time, 'to':end_time, 'ranges':[range2], 'stepmode':stepmode}]
 
-        n_trials = 1
-        n_rnds = 2
-        m = 1
+    order_sched = {'sup':supply_schedule, 'dem':demand_schedule, 'interval':30, 'timemode':timemode}
 
-        if vary_parameters:
-        # set up parameters for the session
-            for i in range(len(durationmodes)):
-                for j in range(len(stepmodes)):
-                    for k in range(len(timemodes)):
-                        end_time = durationmodes[dmodes[i]]
-                        stepmode = stepmodes[j]
-                        timemode = timemodes[k]
+    buyers_spec = [(trader,trader_count) for trader in traders]
+    # buyers_spec = [('GVWY',trader_count),('SHVR',trader_count),('ZIC',trader_count),('ZIP',trader_count),('AA',trader_count)]
+    
+    sellers_spec = buyers_spec
 
-                        print m, end_time, stepmode, timemode
+    traders_spec = {'sellers':sellers_spec, 'buyers':buyers_spec}
 
-                        duration = end_time - start_time
-
-                        range1 = (95,95)
-                        #range1 = (95, 95, schedule_offsetfn)
-                        supply_schedule = [ {'from':start_time, 'to':end_time, 'ranges':[range1], 'stepmode':stepmode}]
-
-                        range2 = (105,105)
-                        #range2 = (105, 105, schedule_offsetfn)
-                        demand_schedule = [ {'from':start_time, 'to':end_time, 'ranges':[range2], 'stepmode':stepmode}]
-
-                        order_sched = {'sup':supply_schedule, 'dem':demand_schedule, 'interval':30, 'timemode':timemode}
-
-                        buyers_spec = [(trader,trader_count) for trader in traders]
-                        # buyers_spec = [('GVWY',trader_count),('SHVR',trader_count),('ZIC',trader_count),('ZIP',trader_count),('AA',trader_count)]
-                        sellers_spec = buyers_spec
-
-                        traders_spec = {'sellers':sellers_spec, 'buyers':buyers_spec}
-
-                        run_standard_simulation(end_time, traders_spec, order_sched, m)
-                        m += 1
-
-        else:
-            if tests:
-                (traders, trader_count, n_trials, end_time, stepmode, timemode) = gettest1()
-            else:
-                end_time = durationmodes[default[0]]
-                stepmode = default[1]
-                timemode = default[2]
-
-            duration = end_time - start_time
-            
-            range1 = (95, 95, schedule_offsetfn)
-            supply_schedule = [ {'from':start_time, 'to':end_time, 'ranges':[range1], 'stepmode':stepmode}]
-
-            range2 = (105, 105, schedule_offsetfn)
-            demand_schedule = [ {'from':start_time, 'to':end_time, 'ranges':[range2], 'stepmode':stepmode}]
-
-            order_sched = {'sup':supply_schedule, 'dem':demand_schedule, 'interval':30, 'timemode':timemode}
-
+    if evolution:
+        rnd = 1
+        while (rnd<(n_rnds+1)):
             buyers_spec = [(trader,trader_count) for trader in traders]
             sellers_spec = buyers_spec
 
             traders_spec = {'sellers':sellers_spec, 'buyers':buyers_spec}
-
-            if evolution:
-                rnd = 1
-                while (rnd<(n_rnds+1)):
-                    buyers_spec = [(trader,trader_count) for trader in traders]
-                    sellers_spec = buyers_spec
-
-                    traders_spec = {'sellers':sellers_spec, 'buyers':buyers_spec}
-                    run_evolution_simulation(n_trials,end_time, traders_spec, order_sched, knock_out, rnd)
-                    rnd += 1
-            else:    
-                run_standard_simulation(n_trials, end_time, traders_spec, order_sched,0)
+            run_evolution_simulation(n_trials,end_time, traders_spec, order_sched, knock_out, rnd)
+            rnd += 1
+    else:
+        run_standard_simulation(n_trials,end_time, traders_spec, order_sched, m)
 
 
-        sys.exit('Done Now')
+def run_parameter_tests():
+    trader_count = 9
+    traders = ['GVWY','SHVR','ZIC','ZIP','AA','AAA']
+
+    n_trials = 1
+    n_rnds = 2
+    m = 1
+
+    for i in range(len(durationmodes)):
+        for j in range(len(stepmodes)):
+            for k in range(len(timemodes)):
+                settings = [durationmodes[dmodes[i]], stepmodes[j],timemodes[k]]
+                run_with_settings(settings,m)
+                m += 1        
+
+def run_normal():
+    if vary_parameters:
+        run_parameter_tests()
+    else:
+        settings = default
+        m = 1
+        run_with_settings(settings,m)
+
+
+if __name__ == "__main__":
+    # runtest1()
+    run_normal()
+    sys.exit('Done Now')
 
 
 
@@ -224,7 +212,31 @@ if __name__ == "__main__":
 
 
 
-        
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
         # run a sequence of trials that exhaustively varies the ratio of four trader types
         # NB this has weakness of symmetric proportions on buyers/sellers -- combinatorics of varying that are quite nasty

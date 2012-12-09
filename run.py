@@ -9,11 +9,11 @@ from utils import simulation_utils
 store_traders = False
 dump_all = False
 vary_parameters = False
-tests = False
-evolution = True
+tests = True
+evolution = False
 knock_out = True
 store_profits = False
-store_trader_orders = True
+store_trader_orders = False
 store_lob_orders = False
 start_time = 0
 
@@ -122,21 +122,65 @@ def runtest1():
 
     run_with_settings(settings,1)
 
-def gettest2():
-    traders = ['GVWY','SHVR','ZIP','AA']
-    return (traders, 30, 25, 450, 'random', 'drip-jitter')
+def runtest6():
+    traders = ['GVWY','SHVR','ZIP','AA','AAA']
+    trader_count = 30
+    n_trials = 25
+    end_time = 150
+    stepmode = 'fixed'
+    timemode = 'periodic'
 
-def gettest3():
-    traders = ['GVWY','SHVR','ZIP','AA']
-    return (traders, 30, 25, 700, 'jittered', 'drip-fixed')
+    settings = (traders, trader_count, n_trials, end_time, stepmode, timemode)
 
-def gettest4():
-    traders = ['GVWY','SHVR','ZIP','AA']
-    return (traders, 30, 25, 700, 'jittered', 'periodic')
+    run_with_settings(settings,6)
 
-def gettest5():
-    traders = ['GVWY','SHVR','ZIP','AA']
-    return (traders, 30, 25, 700, 'fixed', 'drip-poisson')        
+def runtest7():
+    traders = ['GVWY','SHVR','ZIP','AA','AAA']
+    trader_count = 30
+    n_trials = 25
+    end_time = 450
+    stepmode = 'random'
+    timemode = 'drip-jitter'
+
+    settings = (traders, trader_count, n_trials, end_time, stepmode, timemode)
+
+    run_with_settings(settings,7)
+
+def runtest8():
+    traders = ['GVWY','SHVR','ZIP','AA','AAA']
+    trader_count = 30
+    n_trials = 25
+    end_time = 700
+    stepmode = 'jittered'
+    timemode = 'drip-fixed'
+
+    settings = (traders, trader_count, n_trials, end_time, stepmode, timemode)
+
+    run_with_settings(settings,8)
+
+def runtest9():
+    traders = ['GVWY','SHVR','ZIP','AA','AAA']
+    trader_count = 30
+    n_trials = 25
+    end_time = 700
+    stepmode = 'jittered'
+    timemode = 'periodic'
+
+    settings = (traders, trader_count, n_trials, end_time, stepmode, timemode)
+
+    run_with_settings(settings,9)
+
+def runtest10():
+    traders = ['GVWY','SHVR','ZIP','AA','AAA']
+    trader_count = 30
+    n_trials = 25
+    end_time = 700
+    stepmode = 'fixed'
+    timemode = 'drip-poisson'
+
+    settings = (traders, trader_count, n_trials, end_time, stepmode, timemode)
+
+    run_with_settings(settings,10)       
 
 def run_with_settings(settings,m):
     (traders, trader_count, n_trials, end_time, stepmode, timemode) = settings
@@ -199,7 +243,12 @@ def run_normal():
 
 if __name__ == "__main__":
     # runtest1()
-    run_normal()
+    runtest6()
+    runtest7()
+    runtest8()
+    runtest9()
+    runtest10()
+    #run_normal()
     sys.exit('Done Now')
 
 

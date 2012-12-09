@@ -9,6 +9,7 @@ from utils import simulation_utils
 store_traders = False
 dump_all = False
 vary_parameters = False
+tests = False
 evolution = False
 knock_out = True
 store_profits = False
@@ -98,7 +99,26 @@ def run_evolution_simulation(n_trials,end_time, traders_spec, order_sched, knock
         trial = trial + 1
     simulation_utils.store_simulation_data(trader_types,evolution_output,rnd)
     tdump.close()
-        
+
+def gettest1():
+    traders = ['GVWY','SHVR','ZIP','AA']
+    return (traders, 30, 25, 150, 'fixed', 'periodic')
+
+def gettest2():
+    traders = ['GVWY','SHVR','ZIP','AA']
+    return (traders, 30, 25, 450, 'random', 'drip-jitter')
+
+def gettest3():
+    traders = ['GVWY','SHVR','ZIP','AA']
+    return (traders, 30, 25, 700, 'jittered', 'drip-fixed')
+
+def gettest4():
+    traders = ['GVWY','SHVR','ZIP','AA']
+    return (traders, 30, 25, 700, 'jittered', 'periodic')
+
+def gettest5():
+    traders = ['GVWY','SHVR','ZIP','AA']
+    return (traders, 30, 25, 700, 'fixed', 'drip-poisson')        
 
 if __name__ == "__main__":
         # #        range1 = (10, 190, schedule_offsetfn)
@@ -156,35 +176,40 @@ if __name__ == "__main__":
                         run_standard_simulation(end_time, traders_spec, order_sched, m)
                         m += 1
 
-        end_time = durationmodes[default[0]]
-        stepmode = default[1]
-        timemode = default[2]
-        duration = end_time - start_time
+        else:
+            if tests:
+                (traders, trader_count, n_trials, end_time, stepmode, timemode) = gettest1()
+            else:
+                end_time = durationmodes[default[0]]
+                stepmode = default[1]
+                timemode = default[2]
 
-        range1 = (95, 95, schedule_offsetfn)
-        supply_schedule = [ {'from':start_time, 'to':end_time, 'ranges':[range1], 'stepmode':stepmode}]
+            duration = end_time - start_time
+            
+            range1 = (95, 95, schedule_offsetfn)
+            supply_schedule = [ {'from':start_time, 'to':end_time, 'ranges':[range1], 'stepmode':stepmode}]
 
-        range2 = (105, 105, schedule_offsetfn)
-        demand_schedule = [ {'from':start_time, 'to':end_time, 'ranges':[range2], 'stepmode':stepmode}]
+            range2 = (105, 105, schedule_offsetfn)
+            demand_schedule = [ {'from':start_time, 'to':end_time, 'ranges':[range2], 'stepmode':stepmode}]
 
-        order_sched = {'sup':supply_schedule, 'dem':demand_schedule, 'interval':30, 'timemode':timemode}
+            order_sched = {'sup':supply_schedule, 'dem':demand_schedule, 'interval':30, 'timemode':timemode}
 
-        buyers_spec = [(trader,trader_count) for trader in traders]
-        sellers_spec = buyers_spec
+            buyers_spec = [(trader,trader_count) for trader in traders]
+            sellers_spec = buyers_spec
 
-        traders_spec = {'sellers':sellers_spec, 'buyers':buyers_spec}
+            traders_spec = {'sellers':sellers_spec, 'buyers':buyers_spec}
 
-        if evolution:
-            rnd = 1
-            while (rnd<(n_rnds+1)):
-                buyers_spec = [(trader,trader_count) for trader in traders]
-                sellers_spec = buyers_spec
+            if evolution:
+                rnd = 1
+                while (rnd<(n_rnds+1)):
+                    buyers_spec = [(trader,trader_count) for trader in traders]
+                    sellers_spec = buyers_spec
 
-                traders_spec = {'sellers':sellers_spec, 'buyers':buyers_spec}
-                run_evolution_simulation(n_trials,end_time, traders_spec, order_sched, knock_out, rnd)
-                rnd += 1
-        else:    
-            run_standard_simulation(n_trials, end_time, traders_spec, order_sched,0)
+                    traders_spec = {'sellers':sellers_spec, 'buyers':buyers_spec}
+                    run_evolution_simulation(n_trials,end_time, traders_spec, order_sched, knock_out, rnd)
+                    rnd += 1
+            else:    
+                run_standard_simulation(n_trials, end_time, traders_spec, order_sched,0)
 
 
         sys.exit('Done Now')

@@ -50,7 +50,9 @@ def test_r_intramarginal():
         plot(rs,targets[:,0], 'r-')
         plot(rs,targets[:,1], 'b--')
 
-    title('Intra')
+    ylabel('Target Price')
+    xlabel('Aggressiveness')
+    title('Intramarginal')
     show()
 
 def test_r_extramarginal():
@@ -92,6 +94,8 @@ def test_r_extramarginal():
         plot(rs,targets[:,0], 'r-')
         plot(rs,targets[:,1], 'b--')
     
+    ylabel('Target Price')
+    xlabel('Aggressiveness')
     title('Extramarginal')
     show()
 
@@ -115,6 +119,8 @@ def test_instance(trader):
     if trader.equilibrium:
         plot(rs,ones(N) * trader.equilibrium, 'k--')
 
+    ylabel('Target Price')
+    xlabel('Aggressiveness')
     show()
 
 

@@ -58,7 +58,10 @@ def dump_trader(trader,time,order):
 
 def dump_trader_order(trader,time,order):
     """ Output the traders new order against their current limit price """
-
+    if not order:
+        return
+    if not trader.limit:
+        return
     if trader.ttype == "AAA" and trader.equilibrium != None and trader.tau != None: 
         store_data = (trader.tid,trader.ttype,trader.limit,order.price,time,trader.equilibrium,trader.r,trader.tau,trader.agg_r)
     elif trader.ttype == "AA" and trader.equilibrium != None and trader.tau != None: 

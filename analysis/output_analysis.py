@@ -182,12 +182,12 @@ def find_nongvwy_transactions():
                 count += 1
     return count    
 
-def find_buyers_orders():
+def find_orders(job):
     buyers = []
     with open("../" + trader_utils.trader_orders_filepath()) as f:
         reader = csv.reader(f)
         for row in reader:
-            if row[0][0] == 'B' and row[0] not in buyers:
+            if row[0][0] == job and row[0] not in buyers:
                 buyers.append(row[0])
     return buyers
 
@@ -221,7 +221,7 @@ def get_transactions():
 
     return (all_ts,transactions)
 
-def plot_order_vs_limit(tids,all):
+def plot_order_vs_limit(tids,all,job):
     with open("../" + trader_utils.trader_orders_filepath()) as f:
         reader = csv.reader(f)
 
@@ -240,7 +240,8 @@ def plot_order_vs_limit(tids,all):
             #     order_price = None
 
             limit_price = row[2]
-            points.append(float(limit_price))
+            try: points.append(float(limit_price))
+            except Exception: pdb.set_trace()
 
             if len(row) > 5:
                 equilibrium = float(row[5])
@@ -297,7 +298,6 @@ def plot_order_vs_limit(tids,all):
     maximum = max(all_ts[:,1]) + 50
     minimum = min(all_ts[:,1]) - 50
 
-
     if augmented: number_of_plots = 3
     else: number_of_plots = 2
 
@@ -322,24 +322,36 @@ def plot_order_vs_limit(tids,all):
         except Exception:
             pdb.set_trace()
 
-        plot(all_ts[:,0],all_ts[:,1],'yx')
-
+        plot(all_ts[:,0],all_ts[:,1],'cx')
+        xlabel("time")
+        ylabel("Price")
         if tid in transactions:
             if count_nonzero(transactions[tid]) == 2:
                 plot(transactions[tid][0],transactions[tid][1], 'g*')
             else:
                 plot(transactions[tid][:,0],transactions[tid][:,1], 'g*')
-        
+        # legend(['Limit price', 'Order price', 'Equilibrium', 'Target Price', 'Market ts', 'Trader ts'])
         if not all:
             subplot(number_of_plots, 1, 1)       
+            if job == 'A':
+                title('Seller Trader AA aggressiveness vs transactions')
+            else:
+                title('Buyer Trader AA aggressiveness vs transactions')
             plot(trader['times'],trader['rs'],'b-')
+
+            ylabel("Aggressiveness, r")
             if augmented:
                 subplot(number_of_plots, 1, 2)       
                 plot(trader['times'],trader['agg_rs'],'b--')
             show()
-        
+
         plot_index += 1
 
+    if all:
+        if job == 'A':
+            suptitle('Seller Trader AA transactions overview')
+        else:
+            suptitle('Buyer Trader AA transactions overview')
 
     # while plot_index < square**2:
     #     print plot_index
@@ -354,8 +366,9 @@ def find_abnormal_trades():
             line_dictionary = json.loads(line)
             
 if __name__ == "__main__":
-    buyer_tids = find_buyers_orders()
-    plot_order_vs_limit(buyer_tids,False)
+    job = 'B'
+    buyer_tids = find_orders(job)
+    plot_order_vs_limit(buyer_tids,True,job)
 
     # print get_transactions()
 

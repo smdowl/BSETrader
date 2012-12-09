@@ -901,6 +901,18 @@ class Trader_AA(Trader):
             # Calculate theta from alpha
             self.theta = self.calculate_theta()
 
+
+            if self.job == "Bid":
+                price_to_match = lob['bids']['best']
+                if not price_to_match:
+                    price_to_match = self.p_min
+            else:
+                price_to_match = lob['asks']['best']   
+                if not price_to_match:
+                    price_to_match = self.p_max
+
+            self.update_bid_variables(price_to_match)
+
     def get_marginality(self):
         """Get the marginality based on the trader type and estimate of the market equilibrium"""
 
@@ -1600,6 +1612,12 @@ def market_session(sess_id, starttime, endtime, trader_spec, order_schedule, dum
 
                                 # if traders[trade['party2']].ttype == "AA":
                                 #     trader_utils.dump_trader(traders[trade['party2']],time,order)
+
+                                if traders[trade['party1']].ttype == "AA" and order and store_trader_orders:
+                                    trader_utils.dump_trader_order(traders[trade['party1']],time,order)
+
+                                if traders[trade['party2']].ttype == "AA" and order and store_trader_orders:
+                                    trader_utils.dump_trader_order(traders[trade['party2']],time,order)
 
                                 traders[trade['party1']].bookkeep(trade, order, bookkeep_verbose,store_profits)
                                 traders[trade['party2']].bookkeep(trade, order, bookkeep_verbose,store_profits)

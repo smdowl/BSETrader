@@ -10,7 +10,7 @@ store_traders = False
 dump_all = False
 vary_parameters = False
 tests = False
-evolution = True
+evolution = False
 knock_out = True
 store_profits = False
 store_trader_orders = True
@@ -25,7 +25,7 @@ durationmodes = {'short':150,'medium':450,'long':700}
 dmodes = ['short','medium','long']
 stepmodes = ['fixed', 'random', 'jittered']
 timemodes = ['periodic', 'drip-fixed', 'drip-jitter','drip-poisson']
-default = [['GVWY','SHVR','ZIC','ZIP','AA','AAA'],9,5,durationmodes['medium'],'jittered','drip-fixed']
+default = [['GVWY','SHVR','ZIC','ZIP','AA','AAA'],10,5,durationmodes['medium'],'jittered','drip-fixed']
 
 # schedule_offsetfn returns time-dependent offset on schedule prices
 def schedule_offsetfn(t):
@@ -109,6 +109,52 @@ def run_evolution_simulation(n_trials,end_time, traders_spec, order_sched, knock
         trial = trial + 1
     simulation_utils.store_simulation_data(trader_types,evolution_output,rnd)
     tdump.close()
+
+def runAAvsAll():
+    traders = ['GVWY','SHVR','ZIP','AA']
+    trader_count = 9
+    n_trials = 1
+    end_time = durationmodes['medium']
+    stepmode = 'jittered'
+    timemode = 'drip-fixed'
+
+    settings = (traders, trader_count, n_trials, end_time, stepmode, timemode)
+
+    run_with_settings(settings,1)
+
+def runAAvsAA():
+    traders = ['AA']
+    trader_count = 9
+    n_trials = 1
+    end_time = durationmodes['medium']
+    stepmode = 'jittered'
+    timemode = 'drip-fixed'
+    settings = (traders, trader_count, n_trials, end_time, stepmode, timemode)
+
+    run_with_settings(settings,1)
+
+def runAAAvsAAA():
+    traders = ['AAA']
+    trader_count = 9
+    n_trials = 1
+    end_time = durationmodes['medium']
+    stepmode = 'jittered'
+    timemode = 'drip-fixed'
+    settings = (traders, trader_count, n_trials, end_time, stepmode, timemode)
+    
+    run_with_settings(settings,1)
+
+def runAAAvsAll():
+    traders = ['GVWY','SHVR','ZIP','AAA']
+    trader_count = 9
+    n_trials = 1
+    end_time = durationmodes['medium']
+    stepmode = 'jittered'
+    timemode = 'drip-fixed'
+
+    settings = (traders, trader_count, n_trials, end_time, stepmode, timemode)
+
+    run_with_settings(settings,1)
 
 def runtest1():
     traders = ['GVWY','SHVR','ZIP','AA']
@@ -198,8 +244,10 @@ def run_normal():
 
 
 if __name__ == "__main__":
-    # runtest1()
-    run_normal()
+    # runAAvsAll()
+    # runAAAvsAll()
+    # runAAvsAA()
+    runAAAvsAAA()
     sys.exit('Done Now')
 
 
